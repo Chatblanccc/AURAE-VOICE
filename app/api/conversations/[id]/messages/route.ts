@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { loadConversationMessages, saveMessageToConversation } from '@/lib/db';
+import { loadConversationMessages, saveMessageToConversation, ensureSchema } from '@/lib/db';
 import type { Message } from '@/types';
 
 type S = { user?: { id?: string } | null } | null;
@@ -14,7 +14,11 @@ export async function GET(
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { id } = await params;
+
+    try { await ensureSchema(); } catch {}
+
     const messages = await loadConversationMessages(id, userId);
+    console.log('[GET /api/conversations/[id]/messages]', id.slice(0, 8), '→', messages.length, 'msgs');
     return NextResponse.json(messages);
   } catch (e) {
     console.error('GET /api/conversations/[id]/messages', e);
@@ -31,6 +35,9 @@ export async function POST(
     const userId = session?.user?.id;
     if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { id } = await params;
+
+    try { await ensureSchema(); } catch {}
+
     const msg: Message = await req.json();
     await saveMessageToConversation(id, userId, msg);
     return NextResponse.json({ ok: true });

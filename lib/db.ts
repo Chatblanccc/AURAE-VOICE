@@ -7,54 +7,96 @@ function getDb() {
   return neon(url);
 }
 
+let schemaReady = false;
+
 /**
  * Idempotent schema bootstrap — safe to call on every cold start.
- * ORDER MATTERS: ALTER TABLE must run before any index that references the new column.
+ * Each statement is individually wrapped so a single failure
+ * (e.g. column already exists) never cascades to skip later statements.
  */
 export async function ensureSchema() {
+  if (schemaReady) return;
   const sql = getDb();
 
-  // ── 1. Conversations table (new) ──────────────────────────────────────────
-  await sql`
-    CREATE TABLE IF NOT EXISTS conversations (
-      id          TEXT NOT NULL,
-      user_id     TEXT NOT NULL,
-      title       TEXT NOT NULL DEFAULT 'New Chat',
-      created_at  BIGINT NOT NULL,
-      updated_at  BIGINT NOT NULL,
-      PRIMARY KEY (id, user_id)
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id          TEXT NOT NULL,
+        user_id     TEXT NOT NULL,
+        title       TEXT NOT NULL DEFAULT 'New Chat',
+        created_at  BIGINT NOT NULL,
+        updated_at  BIGINT NOT NULL,
+        PRIMARY KEY (id, user_id)
+      )
+    `;
+  } catch (e) { console.error('[schema] conversations table:', String(e)); }
 
-  // ── 2. Messages table ─────────────────────────────────────────────────────
-  // Use the original single-column PRIMARY KEY so it matches the existing table.
-  // CREATE TABLE IF NOT EXISTS is a no-op when the table already exists.
-  await sql`
-    CREATE TABLE IF NOT EXISTS messages (
-      id              TEXT PRIMARY KEY,
-      user_id         TEXT NOT NULL,
-      conversation_id TEXT,
-      role            TEXT NOT NULL,
-      content         TEXT NOT NULL,
-      timestamp       BIGINT NOT NULL,
-      created_at      TIMESTAMPTZ DEFAULT NOW()
-    )
-  `;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS messages (
+        id              TEXT PRIMARY KEY,
+        user_id         TEXT NOT NULL,
+        conversation_id TEXT,
+        role            TEXT NOT NULL,
+        content         TEXT NOT NULL,
+        timestamp       BIGINT NOT NULL,
+        created_at      TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] messages table:', String(e)); }
 
-  // ── 3. Migration: add conversation_id to the existing table ───────────────
-  // Must run BEFORE any index that references this column.
-  await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id TEXT DEFAULT NULL`;
+  try {
+    await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS conversation_id TEXT DEFAULT NULL`;
+  } catch (e) { console.error('[schema] alter messages:', String(e)); }
 
-  // ── 4. Indexes (all idempotent) ───────────────────────────────────────────
-  await sql`CREATE INDEX IF NOT EXISTS conv_user_idx       ON conversations(user_id, updated_at DESC)`;
-  await sql`CREATE INDEX IF NOT EXISTS messages_conv_idx   ON messages(conversation_id, user_id, timestamp ASC)`;
-  await sql`CREATE INDEX IF NOT EXISTS messages_user_idx   ON messages(user_id, created_at)`;
+  try { await sql`CREATE INDEX IF NOT EXISTS conv_user_idx     ON conversations(user_id, updated_at DESC)`; } catch {}
+  try { await sql`CREATE INDEX IF NOT EXISTS messages_conv_idx ON messages(conversation_id, user_id, timestamp ASC)`; } catch {}
+  try { await sql`CREATE INDEX IF NOT EXISTS messages_user_idx ON messages(user_id, created_at)`; } catch {}
+
+  schemaReady = true;
 }
 
 // ── Conversation CRUD ─────────────────────────────────────────────────────────
 
+/**
+ * Recover orphaned messages: if there are messages with a conversation_id
+ * but no matching row in conversations, auto-create the conversation record.
+ * This handles data left by earlier buggy code paths.
+ */
+async function recoverOrphanedConversations(userId: string) {
+  try {
+    const sql = getDb();
+    await sql`
+      INSERT INTO conversations (id, user_id, title, created_at, updated_at)
+      SELECT
+        m.conversation_id,
+        m.user_id,
+        COALESCE(
+          LEFT(MIN(CASE WHEN m.role = 'user' THEN m.content ELSE NULL END), 50),
+          'Recovered Chat'
+        ),
+        MIN(m.timestamp),
+        MAX(m.timestamp)
+      FROM messages m
+      WHERE m.user_id = ${userId}
+        AND m.conversation_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM conversations c
+          WHERE c.id = m.conversation_id AND c.user_id = m.user_id
+        )
+      GROUP BY m.conversation_id, m.user_id
+      ON CONFLICT (id, user_id) DO NOTHING
+    `;
+  } catch (e) {
+    console.error('[db] recoverOrphanedConversations:', String(e));
+  }
+}
+
 export async function listConversations(userId: string): Promise<Conversation[]> {
   const sql = getDb();
+
+  await recoverOrphanedConversations(userId);
+
   const rows = await sql`
     SELECT id, title, created_at, updated_at
     FROM conversations
@@ -110,7 +152,6 @@ export async function loadConversationMessages(convId: string, userId: string): 
 
 export async function saveMessageToConversation(convId: string, userId: string, msg: Message): Promise<void> {
   const sql = getDb();
-  // ON CONFLICT (id) — the existing table uses  id TEXT PRIMARY KEY  (single column).
   await sql`
     INSERT INTO messages (id, user_id, conversation_id, role, content, timestamp)
     VALUES (${msg.id}, ${userId}, ${convId}, ${msg.role}, ${msg.content}, ${msg.timestamp})
@@ -140,7 +181,6 @@ export async function loadMessages(userId: string): Promise<Message[]> {
 
 export async function saveMessage(userId: string, msg: Message): Promise<void> {
   const sql = getDb();
-  // ON CONFLICT (id) — matches the real PRIMARY KEY of the existing table.
   await sql`
     INSERT INTO messages (id, user_id, role, content, timestamp)
     VALUES (${msg.id}, ${userId}, ${msg.role}, ${msg.content}, ${msg.timestamp})

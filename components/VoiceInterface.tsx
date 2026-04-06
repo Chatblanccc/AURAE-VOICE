@@ -290,8 +290,7 @@ export const VoiceInterface = () => {
   const desktopMsgRef = useRef<HTMLDivElement>(null);
   const mobileMsgRef = useRef<HTMLDivElement>(null);
   const currentConvIdRef = useRef<string | null>(currentConversationId);
-  // Use a ref (not state) so toggling it never causes an extra re-render
-  const convsLoadedRef = useRef(false);
+  const prevUserIdRef = useRef<string | undefined>(undefined);
 
   // keep ref in sync so handleSend closure always has the latest id
   useEffect(() => { currentConvIdRef.current = currentConversationId; }, [currentConversationId]);
@@ -300,28 +299,42 @@ export const VoiceInterface = () => {
   const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : 'Ready';
   const statusColor = isListening ? '#FFA855' : isSpeaking ? '#FF9E45' : isLoading ? '#94a3b8' : theme.textMuted;
 
-  // ── Load conversations on login ──────────────────────────────────────────────
+  // ── Load conversations on login / session change ────────────────────────────
   useEffect(() => {
-    if (!userId || convsLoadedRef.current) return;
-    convsLoadedRef.current = true;
+    if (!userId) return;
+    // Skip if we already loaded for this exact userId
+    if (prevUserIdRef.current === userId) return;
+    prevUserIdRef.current = userId;
 
-    fetch('/api/conversations')
-      .then(r => r.json())
-      .then(async (list: Conversation[]) => {
-        if (!Array.isArray(list) || list.length === 0) return;
-        // Populate the store with the conversation list
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/conversations');
+        if (!res.ok) { console.error('[load] GET /api/conversations', res.status); return; }
+        const list: Conversation[] = await res.json();
+        if (cancelled) return;
+        if (!Array.isArray(list) || list.length === 0) {
+          setConversations([]);
+          return;
+        }
         setConversations(list);
         // Auto-load the most recently updated conversation
         const latest = list[0];
         setCurrentConversationId(latest.id);
-        const res = await fetch(`/api/conversations/${latest.id}/messages`);
-        const msgs: Message[] = await res.json();
-        loadMessages(Array.isArray(msgs) && msgs.length > 0 ? msgs : []);
-      })
-      .catch(e => {
-        console.error('Failed to load conversations:', e);
-        convsLoadedRef.current = false; // allow retry on next userId change
-      });
+        currentConvIdRef.current = latest.id;
+        const msgRes = await fetch(`/api/conversations/${latest.id}/messages`);
+        if (cancelled) return;
+        const msgs: Message[] = await msgRes.json();
+        loadMessages(Array.isArray(msgs) ? msgs : []);
+      } catch (e) {
+        console.error('[load] Failed to load conversations:', e);
+        // Reset so a re-render / session refresh can retry
+        prevUserIdRef.current = undefined;
+      }
+    })();
+
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
