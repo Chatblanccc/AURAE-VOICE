@@ -7,6 +7,7 @@ import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import { useThemeStore } from '@/store/useThemeStore';
 import { useSession, signOut } from 'next-auth/react';
 import { AvatarScene } from '@/components/AvatarScene';
+import { AvatarCharacter } from '@/components/AvatarCharacter';
 import {
   Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare, Sparkles,
   Send, Keyboard, Sun, Moon, LogOut, Plus, Trash2, Menu, X,
@@ -623,15 +624,16 @@ export const VoiceInterface = () => {
             /* ── Active: compact horizontal strip ──────────────────────── */
             <div className="avatar-strip flex-shrink-0 flex items-center gap-3 px-5 py-2.5 border-b relative z-10"
               style={{ borderColor: theme.separatorColor, animation: 'stripIn .35s ease-out' }}>
-              {/* Mini avatar */}
-              <div className="flex-shrink-0 w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center"
+              {/* Mini avatar — AvatarCharacter gives just the SVG (with mouth animation) */}
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{
                   background: theme.bgAvatarCard,
-                  border: `1px solid ${isActive ? 'rgba(254,129,19,.32)' : (theme.mode === 'dark' ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)')}`,
-                  boxShadow: isActive ? '0 0 14px rgba(254,129,19,.22)' : 'none',
+                  border: `1px solid ${isActive ? 'rgba(254,129,19,.35)' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
+                  boxShadow: isActive ? '0 0 16px rgba(254,129,19,.24)' : 'none',
                   transition: 'box-shadow .4s, border-color .4s',
+                  overflow: 'hidden',
                 }}>
-                <AvatarScene isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={32} />
+                <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
               </div>
               {/* Name + status */}
               <div className="flex flex-col gap-0.5">
@@ -761,15 +763,16 @@ export const VoiceInterface = () => {
           /* ── Active: compact horizontal strip ───────────────────────── */
           <div className="avatar-strip flex-shrink-0 relative z-10 flex items-center gap-3 px-4 py-2 border-b"
             style={{ borderColor: theme.separatorColor, animation: 'stripIn .35s ease-out' }}>
-            {/* Mini avatar card */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
+            {/* Mini avatar — AvatarCharacter gives just the SVG (with mouth animation) */}
+            <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
               style={{
                 background: theme.bgAvatarCard,
-                border: `1px solid ${isActive ? 'rgba(254,129,19,.30)' : 'rgba(255,255,255,.07)'}`,
-                boxShadow: isActive ? '0 0 14px rgba(254,129,19,.20)' : 'none',
-                transition: 'box-shadow .4s,border-color .4s',
+                border: `1px solid ${isActive ? 'rgba(254,129,19,.35)' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
+                boxShadow: isActive ? '0 0 16px rgba(254,129,19,.24)' : 'none',
+                transition: 'box-shadow .4s, border-color .4s',
+                overflow: 'hidden',
               }}>
-              <AvatarScene isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={36} />
+              <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
             </div>
 
             {/* Name + status */}
