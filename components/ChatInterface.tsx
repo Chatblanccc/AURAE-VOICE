@@ -164,7 +164,7 @@ export const ChatInterface = () => {
               variant="ghost" 
               size="icon" 
               className={`absolute right-2 bottom-1.5 transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-muted-foreground'}`}
-              onClick={startListening}
+              onClick={() => startListening()}
             >
               {isListening ? <MicOff size={18} /> : <Mic size={18} />}
             </Button>
