@@ -78,23 +78,73 @@ const WaveformBars = ({ active, color }: { active: boolean; color: string }) => 
 const ChatBubble = ({ role, content, onReplay }: { role: 'user' | 'assistant'; content: string; onReplay?: () => void }) => {
   const { theme } = useThemeStore();
   const u = role === 'user';
+
+  // Separate bilingual content (English / Chinese)
+  const hasChinese = /[\u4e00-\u9fff]/.test(content);
+  const engLines: string[] = [];
+  const zhLines: string[] = [];
+  if (hasChinese) {
+    content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l =>
+      (/[\u4e00-\u9fff]/.test(l) ? zhLines : engLines).push(l)
+    );
+  }
+  const mainText = hasChinese ? engLines.join('\n') || content : content;
+  const subText  = hasChinese ? zhLines.join('\n') : '';
+
   return (
-    <div className={`flex gap-2.5 ${u ? 'flex-row-reverse' : 'flex-row'}`} style={{ animation: 'fadeUp .3s ease-out' }}>
-      <div className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5"
-        style={{ background: u ? 'rgba(254,129,19,.2)' : 'linear-gradient(135deg,#D96B0B,#FE8113)', color: '#fff' }}>
-        {u ? 'You' : 'AI'}
-      </div>
-      <div className={`max-w-[80%] group ${u ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-        <div className="px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed" style={{
-          background: u ? theme.bubbleUserBg : theme.bubbleAIBg,
-          border: u ? `1px solid ${theme.bubbleUserBorder}` : `1px solid ${theme.bubbleAIBorder}`,
-          backdropFilter: 'blur(8px)',
-          color: u ? theme.bubbleUserText ?? theme.textSecondary : theme.bubbleAIText,
+    <div className={`flex flex-col gap-0.5 ${u ? 'items-end' : 'items-start'}`}
+      style={{ animation: 'fadeUp .3s ease-out' }}>
+
+      {/* Sender label */}
+      <span className="text-[10px] tracking-wide px-1 select-none"
+        style={{ color: theme.textDimmer, fontVariantNumeric: 'tabular-nums' }}>
+        {u ? 'You' : 'Alex'}
+      </span>
+
+      {/* Bubble + replay */}
+      <div className="group max-w-[78%]">
+        <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed" style={{
+          background: u
+            ? (theme.mode === 'dark' ? 'rgba(254,129,19,.11)' : 'rgba(254,129,19,.10)')
+            : (theme.mode === 'dark' ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.04)'),
+          border: u
+            ? `1px solid rgba(254,129,19,.22)`
+            : `1px solid ${theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'}`,
+          backdropFilter: 'blur(10px)',
         }}>
-          {content || <div className="flex gap-1 items-center h-4">{[0, 1, 2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: 'rgba(254,129,19,.5)', animation: `waveBar .8s ease-in-out ${i * .2}s infinite alternate` }} />)}</div>}
+          {content ? (
+            <>
+              <p style={{ color: u ? (theme.bubbleUserText ?? theme.textSecondary) : theme.bubbleAIText, whiteSpace: 'pre-wrap' }}>
+                {mainText}
+              </p>
+              {subText && (
+                <p className="mt-2 pt-2 text-xs leading-relaxed border-t"
+                  style={{
+                    color: u
+                      ? (theme.mode === 'dark' ? 'rgba(255,175,100,.42)' : 'rgba(160,80,0,.45)')
+                      : (theme.mode === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(28,16,6,.35)'),
+                    borderColor: u
+                      ? 'rgba(254,129,19,.14)'
+                      : (theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'),
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                  {subText}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="flex gap-1 items-center h-4">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="w-1.5 h-1.5 rounded-full"
+                  style={{ background: 'rgba(254,129,19,.5)', animation: `waveBar .8s ease-in-out ${i * .2}s infinite alternate` }} />
+              ))}
+            </div>
+          )}
         </div>
+
         {!u && content && onReplay && (
-          <button onClick={onReplay} className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer opacity-0 group-hover:opacity-100 pl-1"
+          <button onClick={onReplay}
+            className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer opacity-0 group-hover:opacity-100 pl-1 mt-1"
             style={{ color: theme.textDim }}
             onMouseEnter={e => (e.currentTarget.style.color = theme.accentText)}
             onMouseLeave={e => (e.currentTarget.style.color = theme.textDim)}>
@@ -567,7 +617,7 @@ export const VoiceInterface = () => {
           </div>
 
           {/* Message history */}
-          <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-3"
+          <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent` }}>
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center gap-3"
@@ -581,10 +631,10 @@ export const VoiceInterface = () => {
                 onReplay={m.role === 'assistant' ? () => handleReplay(m.content) : undefined} />
             ))}
             {isListening && transcript && (
-              <div className="flex flex-row-reverse gap-2.5" style={{ animation: 'fadeUp .25s ease-out' }}>
-                <div className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'rgba(254,129,19,.2)' }}>You</div>
-                <div className="max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm italic border border-dashed"
-                  style={{ background: 'rgba(254,129,19,.06)', borderColor: 'rgba(254,129,19,.2)', color: 'rgba(255,175,100,.7)' }}>
+              <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .25s ease-out' }}>
+                <span className="text-[10px] tracking-wide px-1 select-none" style={{ color: theme.textDimmer }}>You</span>
+                <div className="max-w-[78%] px-4 py-3 rounded-2xl text-sm italic border border-dashed"
+                  style={{ background: 'rgba(254,129,19,.05)', borderColor: 'rgba(254,129,19,.18)', color: 'rgba(255,175,100,.65)' }}>
                   &ldquo;{transcript}&rdquo;
                 </div>
               </div>
@@ -675,7 +725,7 @@ export const VoiceInterface = () => {
         </div>
 
         {/* Messages */}
-        <div ref={mobileMsgRef} className="flex-1 relative z-10 overflow-y-auto px-4 pb-2 space-y-2"
+        <div ref={mobileMsgRef} className="flex-1 relative z-10 overflow-y-auto px-4 pb-2 space-y-3.5"
           style={{ scrollbarWidth: 'none' }}>
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center gap-2"
@@ -688,10 +738,10 @@ export const VoiceInterface = () => {
               onReplay={m.role === 'assistant' ? () => handleReplay(m.content) : undefined} />
           ))}
           {isListening && transcript && (
-            <div className="flex flex-row-reverse gap-2" style={{ animation: 'fadeUp .2s ease-out' }}>
-              <div className="w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white" style={{ background: 'rgba(254,129,19,.2)' }}>You</div>
-              <div className="flex-1 px-3.5 py-2.5 rounded-2xl text-sm italic border border-dashed"
-                style={{ background: 'rgba(254,129,19,.04)', borderColor: 'rgba(254,129,19,.2)', color: 'rgba(255,175,100,.7)' }}>
+            <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .2s ease-out' }}>
+              <span className="text-[10px] tracking-wide px-1 select-none" style={{ color: theme.textDimmer }}>You</span>
+              <div className="max-w-[78%] px-4 py-3 rounded-2xl text-sm italic border border-dashed"
+                style={{ background: 'rgba(254,129,19,.05)', borderColor: 'rgba(254,129,19,.18)', color: 'rgba(255,175,100,.65)' }}>
                 &ldquo;{transcript}&rdquo;
               </div>
             </div>
