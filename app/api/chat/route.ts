@@ -1,43 +1,97 @@
 import { NextRequest } from 'next/server';
+import { auth } from '@/auth';
+import {
+  ensureSchema, createConversation,
+  saveMessageToConversation, touchConversation,
+} from '@/lib/db';
 
-/** Node.js runtime avoids Edge sandbox fetch issues on Windows dev environments. */
 export const runtime = 'nodejs';
 
+type S = { user?: { id?: string } | null } | null;
 const KIMI_API_URL = 'https://api.moonshot.cn/v1/chat/completions';
+function newId() { return Math.random().toString(36).substring(2, 11); }
+
+function buildFallbackStream(text: string) {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    async start(controller) {
+      for (const word of text.split(' ')) {
+        controller.enqueue(
+          encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
+        );
+        await new Promise(r => setTimeout(r, 70));
+      }
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    },
+  });
+}
 
 export async function POST(req: NextRequest) {
-  const { messages, settings } = await req.json();
-  const apiKey = process.env.KIMI_API_KEY || '';
+  const body = await req.json();
+  const {
+    messages,
+    settings,
+    conversationId,
+    conversationTitle,
+    userMsgId,
+  } = body as {
+    messages: { role: string; content: string }[];
+    settings: { proficiency: string; topic: string };
+    conversationId?: string;
+    conversationTitle?: string;
+    userMsgId?: string;
+  };
 
-  if (!apiKey) {
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const text = 'Please configure your KIMI_API_KEY in .env.local to use the real AI tutor.';
-        for (const word of text.split(' ')) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
-          );
-          await new Promise(r => setTimeout(r, 80));
-        }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      },
-    });
-    return new Response(stream, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-    });
+  const apiKey = process.env.KIMI_API_KEY ?? '';
+
+  // ── Server-side: persist user message before calling AI ──────────────────
+  const session = await auth() as S;
+  const userId = session?.user?.id;
+
+  if (userId && conversationId) {
+    try {
+      await ensureSchema();
+      const now = Date.now();
+      // Upsert conversation (creates on first message, no-op on subsequent)
+      await createConversation(userId, {
+        id: conversationId,
+        title: conversationTitle ?? 'New Chat',
+        created_at: now,
+        updated_at: now,
+      });
+      // Save the last user message
+      const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+      if (lastUserMsg) {
+        await saveMessageToConversation(conversationId, userId, {
+          id: userMsgId ?? newId(),
+          role: 'user',
+          content: lastUserMsg.content,
+          timestamp: now,
+        });
+      }
+    } catch (e) {
+      console.error('[chat] save user msg:', e);
+    }
   }
 
+  // ── No API key → friendly fallback ───────────────────────────────────────
+  if (!apiKey) {
+    return new Response(
+      buildFallbackStream('Please configure your KIMI_API_KEY in environment variables.'),
+      { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' } }
+    );
+  }
+
+  // ── Call Moonshot AI ──────────────────────────────────────────────────────
+  let moonshotRes: Response;
   try {
-    const response = await fetch(KIMI_API_URL, {
+    moonshotRes = await fetch(KIMI_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'moonshot-v1-8k',
+        stream: true,
         messages: [
           {
             role: 'system',
@@ -58,85 +112,93 @@ export async function POST(req: NextRequest) {
 - Never use bullet points, lists, or structured explanations.
 
 ## The fun part — spontaneous challenges
-Every few messages, when it feels natural, throw out a random real-world English challenge. Don't announce it as a "challenge" or "exercise" — just drop it into the conversation like it occurred to you. For example:
-- You just thought of something random: "oh wait — how would you describe what someone looks like when they're trying not to laugh? like in English?"
-- You're pretending you saw something: "dude I just walked past this guy on the street doing the weirdest thing... how would you even describe that in English, like what verb would you use?"
-- You make them translate a feeling: "you know that feeling when you wake up and for a second you forget what day it is? what's that called in English?"
-- You describe a scene and ask them to fill in: "okay so imagine you're at a restaurant and the food is taking forever — what do you actually say to the waiter?"
-- Anything goes — objects, actions, feelings, situations, idioms, sounds, smells. Be creative and random.
+Every few messages, when it feels natural, throw out a random real-world English challenge. Don't announce it as a "challenge" or "exercise" — just drop it into the conversation like it occurred to you.
 
 ## After they answer the challenge
-- If their answer is correct or close: react naturally ("yeah exactly", "haha yes that's the word", "oh nice I wouldn't have thought of that")
-- If their answer is off or incomplete: don't say "wrong" or "incorrect". Just casually model the right way — "oh yeah, I think we'd usually say it more like '...' — sounds a bit more natural ya know?" Then move on. Don't dwell on it.
-- Then continue the conversation like normal. Don't make it feel like a test.
+- If correct or close: react naturally ("yeah exactly", "haha yes that's the word")
+- If off: don't say "wrong". Casually model the right way — "oh yeah, I think we'd usually say it more like '...' — sounds a bit more natural ya know?" Then move on.
 
 ## Pacing
-- Have a real conversation first, build some vibe, then drop a challenge when it feels right.
-- Don't challenge them every single message — maybe every 3–5 exchanges.
-- Mix it up: sometimes pure chat, sometimes a challenge, sometimes just reacting to what they said.
+- Have a real conversation first, then drop a challenge when it feels right.
+- Don't challenge every single message — maybe every 3–5 exchanges.
 
-User's English level: ${settings.proficiency}. Match your vocabulary to that — simple and slow for beginners, natural and fast for advanced.
-Current topic they want to practice: ${settings.topic}. Weave it in when it fits, don't force it.`,
+User's English level: ${settings.proficiency}. Match vocabulary to that.
+Current topic: ${settings.topic}. Weave it in when it fits, don't force it.`,
           },
           ...messages,
         ],
-        stream: true,
       }),
     });
-
-    if (!response.ok) {
-      const detail = await response.text();
-      console.error('Moonshot API error:', response.status, detail.slice(0, 500));
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        async start(controller) {
-          const msg = response.status === 401
-            ? "My API key seems off — tell the host to check the KIMI_API_KEY setting."
-            : response.status === 429
-            ? "Whoa, too many messages at once — give me a second and try again!"
-            : "The AI service hiccupped. Try sending that again?";
-          for (const word of msg.split(' ')) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
-            );
-            await new Promise(r => setTimeout(r, 60));
-          }
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        },
-      });
-      return new Response(stream, {
-        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-      });
-    }
-
-    return new Response(response.body, {
-      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
-    });
   } catch (error) {
-    const err = error as Error & { cause?: { code?: string; message?: string } };
-    console.error('API fetch error:', err.message, err.cause?.code ?? '');
-
-    // Stream a friendly fallback so the client always receives a valid SSE response
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(controller) {
-        const fallback =
-          err.cause?.code === 'ECONNRESET' || err.cause?.code === 'UND_ERR_SOCKET'
-            ? "Hmm, looks like I dropped the connection — happens sometimes. Try again?"
-            : "Oops, something went wrong on my end. Mind trying that again?";
-        for (const word of fallback.split(' ')) {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
-          );
-          await new Promise(r => setTimeout(r, 60));
-        }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      },
-    });
-    return new Response(stream, {
+    const err = error as Error & { cause?: { code?: string } };
+    console.error('[chat] fetch error:', err.message, err.cause?.code ?? '');
+    const msg =
+      err.cause?.code === 'ECONNRESET' || err.cause?.code === 'UND_ERR_SOCKET'
+        ? "Hmm, looks like I dropped the connection. Try again?"
+        : "Oops, something went wrong on my end. Mind trying that again?";
+    return new Response(buildFallbackStream(msg), {
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
     });
   }
+
+  if (!moonshotRes.ok) {
+    const detail = await moonshotRes.text();
+    console.error('[chat] Moonshot error:', moonshotRes.status, detail.slice(0, 300));
+    const msg =
+      moonshotRes.status === 401 ? "My API key seems off — tell the host to check the KIMI_API_KEY setting."
+        : moonshotRes.status === 429 ? "Whoa, too many messages at once — give me a second and try again!"
+          : "The AI service hiccupped. Try sending that again?";
+    return new Response(buildFallbackStream(msg), {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    });
+  }
+
+  // ── Stream to client while buffering for DB save ──────────────────────────
+  const decoder = new TextDecoder();
+  let aiContent = '';
+  const aiMsgId = newId();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const reader = moonshotRes.body!.getReader();
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          // Extract text content for buffering
+          const text = decoder.decode(value, { stream: true });
+          for (const line of text.split('\n')) {
+            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+              try {
+                const delta = JSON.parse(line.slice(6)).choices[0]?.delta?.content;
+                if (delta) aiContent += delta;
+              } catch { /* ignore malformed SSE lines */ }
+            }
+          }
+          // Pass through to client unchanged
+          controller.enqueue(value);
+        }
+      } finally {
+        // Save AI response BEFORE closing — Vercel keeps lambda alive until close()
+        if (userId && conversationId && aiContent.trim()) {
+          try {
+            await saveMessageToConversation(conversationId, userId, {
+              id: aiMsgId,
+              role: 'assistant',
+              content: aiContent,
+              timestamp: Date.now(),
+            });
+            await touchConversation(conversationId, userId);
+          } catch (e) {
+            console.error('[chat] save AI msg:', e);
+          }
+        }
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+  });
 }

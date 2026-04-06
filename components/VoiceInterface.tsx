@@ -278,6 +278,7 @@ export const VoiceInterface = () => {
   const { speak, stop, unlock, isSpeaking } = useTextToSpeech();
   const { theme, toggleTheme, mode } = useThemeStore();
   const { data: session } = useSession();
+  // userId is only needed for loading conversations on mount (handled in useEffect below)
   const userId = getUserId(session);
 
   const [lastProcessedMsgId, setLastProcessedMsgId] = useState<string | null>(null);
@@ -355,20 +356,20 @@ export const VoiceInterface = () => {
   const handleSend = useCallback(async (content: string) => {
     if (!content.trim()) return;
 
-    // Get or lazily create a conversation
+    // Get or lazily create a conversation (UI state only — server handles DB)
     let convId = currentConvIdRef.current;
+    let convTitle = '';
     if (!convId) {
       convId = newId();
-      const title = content.length > 45 ? content.slice(0, 45) + '…' : content;
-      const newConv: Conversation = { id: convId, title, created_at: Date.now(), updated_at: Date.now() };
+      convTitle = content.length > 45 ? content.slice(0, 45) + '…' : content;
+      const newConv: Conversation = { id: convId, title: convTitle, created_at: Date.now(), updated_at: Date.now() };
       addConversation(newConv);
       setCurrentConversationId(convId);
       currentConvIdRef.current = convId;
-      if (userId) {
-        fetch('/api/conversations', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newConv),
-        }).catch(console.error);
-      }
+    } else {
+      // Use the existing conversation's title from the store
+      const existing = useChatStore.getState().conversations.find(c => c.id === convId);
+      convTitle = existing?.title ?? '';
     }
 
     const userMsgId = newId();
@@ -378,20 +379,18 @@ export const VoiceInterface = () => {
     setLoading(true);
     stop();
 
-    if (userId) {
-      fetch(`/api/conversations/${convId}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(userMsg),
-      }).catch(console.error);
-    }
-
     try {
       const currentMessages = useChatStore.getState().messages;
+      // Pass conversationId + userMsgId so the server can persist everything
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [...currentMessages.map(m => ({ role: m.role, content: m.content }))],
           settings,
+          conversationId: convId,
+          conversationTitle: convTitle,
+          userMsgId,
         }),
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
@@ -420,33 +419,28 @@ export const VoiceInterface = () => {
         }
       }
 
-      if (buf.trim() && userId && convId) {
-        const finalAiMsg: Message = { id: aiMsgId, role: 'assistant', content: buf, timestamp: Date.now() };
-        fetch(`/api/conversations/${convId}/messages`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(finalAiMsg),
-        }).catch(console.error);
-        // bubble conversation to top
-        touchConvStore(convId);
-        fetch(`/api/conversations/${convId}`, { method: 'PATCH' }).catch(console.error);
-      }
+      // Bubble conversation to top of list (UI only — server already updated DB)
+      if (convId) touchConvStore(convId);
     } catch (e) { console.error('Chat error:', e); }
     finally { setLoading(false); }
-  }, [appendMessage, settings, setLoading, setTranscript, stop, userId, addConversation, setCurrentConversationId, touchConvStore]);
+  }, [appendMessage, settings, setLoading, setTranscript, stop, addConversation, setCurrentConversationId, touchConvStore]);
 
   useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
 
   const handleMicClick = useCallback(() => { unlock(); stop(); startListening(inputLang); }, [unlock, stop, startListening, inputLang]);
   const handleReplay = useCallback((t: string) => { unlock(); speak(t); }, [unlock, speak]);
   const handleClear = useCallback(async () => {
+    const convId = currentConvIdRef.current;
     clearMessages();
     stop();
-    const convId = currentConvIdRef.current;
-    if (userId && convId) {
-      await fetch(`/api/conversations/${convId}`, { method: 'DELETE' }).catch(console.error);
+    if (convId) {
+      // Remove from UI immediately
       useChatStore.getState().removeConversation(convId);
       setCurrentConversationId(null);
+      // Delete from DB (no auth check needed — server verifies session)
+      fetch(`/api/conversations/${convId}`, { method: 'DELETE' }).catch(console.error);
     }
-  }, [clearMessages, stop, userId, setCurrentConversationId]);
+  }, [clearMessages, stop, setCurrentConversationId]);
   const handleTextSend = useCallback((text: string) => { unlock(); handleSendRef.current(text); }, [unlock]);
 
   // ── Speech error banner ───────────────────────────────────────────────────────
