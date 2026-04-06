@@ -49,18 +49,30 @@ export async function POST(req: NextRequest) {
   const session = await auth() as S;
   const userId = session?.user?.id;
 
+  console.log('[chat] userId:', userId ?? 'NONE', '| convId:', conversationId ?? 'NONE');
+
   if (userId && conversationId) {
+    // Run schema migration separately — don't let it block message saves
     try {
       await ensureSchema();
-      const now = Date.now();
-      // Upsert conversation (creates on first message, no-op on subsequent)
+    } catch (e) {
+      console.error('[chat] ensureSchema error (non-fatal):', String(e));
+    }
+
+    const now = Date.now();
+    try {
       await createConversation(userId, {
         id: conversationId,
         title: conversationTitle ?? 'New Chat',
         created_at: now,
         updated_at: now,
       });
-      // Save the last user message
+      console.log('[chat] conversation upserted:', conversationId);
+    } catch (e) {
+      console.error('[chat] createConversation error:', String(e));
+    }
+
+    try {
       const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
       if (lastUserMsg) {
         await saveMessageToConversation(conversationId, userId, {
@@ -69,9 +81,10 @@ export async function POST(req: NextRequest) {
           content: lastUserMsg.content,
           timestamp: now,
         });
+        console.log('[chat] user message saved');
       }
     } catch (e) {
-      console.error('[chat] save user msg:', e);
+      console.error('[chat] save user msg error:', String(e));
     }
   }
 
@@ -189,8 +202,9 @@ Current topic: ${settings.topic}. Weave it in when it fits, don't force it.`,
               timestamp: Date.now(),
             });
             await touchConversation(conversationId, userId);
+            console.log('[chat] AI message saved, len:', aiContent.length);
           } catch (e) {
-            console.error('[chat] save AI msg:', e);
+            console.error('[chat] save AI msg error:', String(e));
           }
         }
         controller.close();
