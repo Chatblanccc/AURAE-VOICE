@@ -78,12 +78,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   callbacks: {
     jwt({ token, user }) {
+      // user is only present on the first sign-in; persist the ID into the JWT
       if (user?.id) token.userId = user.id;
       return token;
     },
     session({ session, token }) {
-      if (token.userId && session.user) {
-        (session.user as typeof session.user & { id: string }).id = token.userId as string;
+      if (session.user) {
+        // token.userId is set on first login; token.sub is always present as fallback
+        const id = (token.userId ?? token.sub) as string | undefined;
+        if (id) (session.user as typeof session.user & { id: string }).id = id;
       }
       return session;
     },

@@ -1,36 +1,54 @@
 import { create } from 'zustand';
-import { ChatState, Message, UserSettings } from '@/types';
+import { ChatState, Conversation, Message, UserSettings } from '@/types';
 
 export const useChatStore = create<ChatState>((set) => ({
-  messages: [
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: "Hey! What's up?",
-      timestamp: Date.now(),
-    },
-  ],
+  messages: [],
+  conversations: [],
+  currentConversationId: null,
   isLoading: false,
   settings: {
     language: 'en',
     proficiency: 'intermediate',
     topic: 'Daily Conversation',
   },
-  addMessage: (msg: Omit<Message, 'id' | 'timestamp'>) => {
-    const newMessage: Message = {
-      ...msg,
-      id: Math.random().toString(36).substring(7),
-      timestamp: Date.now(),
-    };
+
+  // Append a fully-formed Message (with pre-set id + timestamp)
+  appendMessage: (msg: Message) =>
+    set((state) => ({ messages: [...state.messages, msg] })),
+
+  // Legacy: add a message and auto-generate id + timestamp
+  addMessage: (msg: Omit<Message, 'id' | 'timestamp'>) =>
     set((state) => ({
-      messages: [...state.messages, newMessage],
-    }));
-  },
-  setLoading: (loading: boolean) => set({ isLoading: loading }),
-  clearMessages: () => set({ messages: [] }),
-  updateSettings: (newSettings: Partial<UserSettings>) =>
-    set((state) => ({
-      settings: { ...state.settings, ...newSettings },
+      messages: [
+        ...state.messages,
+        { ...msg, id: Math.random().toString(36).substring(2, 10), timestamp: Date.now() },
+      ],
     })),
+
+  setLoading: (loading: boolean) => set({ isLoading: loading }),
+
+  clearMessages: () => set({ messages: [] }),
+
+  updateSettings: (newSettings: Partial<UserSettings>) =>
+    set((state) => ({ settings: { ...state.settings, ...newSettings } })),
+
   loadMessages: (messages: Message[]) => set({ messages }),
+
+  // Conversation actions
+  setConversations: (convs: Conversation[]) => set({ conversations: convs }),
+
+  addConversation: (conv: Conversation) =>
+    set((state) => ({ conversations: [conv, ...state.conversations] })),
+
+  removeConversation: (id: string) =>
+    set((state) => ({ conversations: state.conversations.filter(c => c.id !== id) })),
+
+  setCurrentConversationId: (id: string | null) => set({ currentConversationId: id }),
+
+  touchConversation: (id: string) =>
+    set((state) => ({
+      conversations: state.conversations
+        .map(c => c.id === id ? { ...c, updated_at: Date.now() } : c)
+        .sort((a, b) => b.updated_at - a.updated_at),
+    })),
 }));

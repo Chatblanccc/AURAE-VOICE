@@ -7,6 +7,13 @@ export interface Message {
   timestamp: number;
 }
 
+export interface Conversation {
+  id: string;
+  title: string;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface UserSettings {
   language: 'zh' | 'en';
   proficiency: 'beginner' | 'intermediate' | 'advanced';
@@ -15,12 +22,21 @@ export interface UserSettings {
 
 export interface ChatState {
   messages: Message[];
+  conversations: Conversation[];
+  currentConversationId: string | null;
   isLoading: boolean;
   settings: UserSettings;
+  // message actions
+  appendMessage: (message: Message) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   setLoading: (loading: boolean) => void;
   clearMessages: () => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
-  /** Bulk-replace the message list (used when restoring history from DB). */
   loadMessages: (messages: Message[]) => void;
+  // conversation actions
+  setConversations: (convs: Conversation[]) => void;
+  addConversation: (conv: Conversation) => void;
+  removeConversation: (id: string) => void;
+  setCurrentConversationId: (id: string | null) => void;
+  touchConversation: (id: string) => void;
 }
