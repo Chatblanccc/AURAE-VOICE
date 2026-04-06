@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ChatState, Message, Role, UserSettings } from '@/types';
+import { ChatState, Message, UserSettings } from '@/types';
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [
@@ -32,4 +32,5 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       settings: { ...state.settings, ...newSettings },
     })),
+  loadMessages: (messages: Message[]) => set({ messages }),
 }));

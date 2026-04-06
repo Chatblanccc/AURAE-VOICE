@@ -87,10 +87,27 @@ Current topic they want to practice: ${settings.topic}. Weave it in when it fits
     if (!response.ok) {
       const detail = await response.text();
       console.error('Moonshot API error:', response.status, detail.slice(0, 500));
-      return new Response(
-        JSON.stringify({ error: 'AI API returned an error', status: response.status }),
-        { status: 502, headers: { 'Content-Type': 'application/json' } }
-      );
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const msg = response.status === 401
+            ? "My API key seems off — tell the host to check the KIMI_API_KEY setting."
+            : response.status === 429
+            ? "Whoa, too many messages at once — give me a second and try again!"
+            : "The AI service hiccupped. Try sending that again?";
+          for (const word of msg.split(' ')) {
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
+            );
+            await new Promise(r => setTimeout(r, 60));
+          }
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      });
     }
 
     return new Response(response.body, {
@@ -99,9 +116,27 @@ Current topic they want to practice: ${settings.topic}. Weave it in when it fits
   } catch (error) {
     const err = error as Error & { cause?: { code?: string; message?: string } };
     console.error('API fetch error:', err.message, err.cause?.code ?? '');
-    return new Response(
-      JSON.stringify({ error: 'Failed to reach AI API', message: err.message, cause: err.cause?.code }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
-    );
+
+    // Stream a friendly fallback so the client always receives a valid SSE response
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        const fallback =
+          err.cause?.code === 'ECONNRESET' || err.cause?.code === 'UND_ERR_SOCKET'
+            ? "Hmm, looks like I dropped the connection — happens sometimes. Try again?"
+            : "Oops, something went wrong on my end. Mind trying that again?";
+        for (const word of fallback.split(' ')) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: word + ' ' } }] })}\n\n`)
+          );
+          await new Promise(r => setTimeout(r, 60));
+        }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+        controller.close();
+      },
+    });
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    });
   }
 }

@@ -21,4 +21,6 @@ export interface ChatState {
   setLoading: (loading: boolean) => void;
   clearMessages: () => void;
   updateSettings: (settings: Partial<UserSettings>) => void;
+  /** Bulk-replace the message list (used when restoring history from DB). */
+  loadMessages: (messages: Message[]) => void;
 }
