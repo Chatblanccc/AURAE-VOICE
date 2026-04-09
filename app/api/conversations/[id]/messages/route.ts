@@ -3,6 +3,9 @@ import { auth } from '@/auth';
 import { loadConversationMessages, saveMessageToConversation, ensureSchema } from '@/lib/db';
 import type { Message } from '@/types';
 
+const VALID_ROLES = new Set(['user', 'assistant', 'system']);
+const MAX_CONTENT_LEN = 32_000;
+
 type S = { user?: { id?: string } | null } | null;
 
 export async function GET(
@@ -38,7 +41,21 @@ export async function POST(
 
     try { await ensureSchema(); } catch {}
 
-    const msg: Message = await req.json();
+    const raw = await req.json();
+    if (
+      typeof raw?.id !== 'string' || !raw.id.trim() ||
+      typeof raw?.role !== 'string' || !VALID_ROLES.has(raw.role) ||
+      typeof raw?.content !== 'string' || !raw.content.trim() ||
+      typeof raw?.timestamp !== 'number'
+    ) {
+      return NextResponse.json({ error: 'Invalid message payload' }, { status: 400 });
+    }
+    const msg: Message = {
+      id: raw.id.trim().slice(0, 100),
+      role: raw.role as Message['role'],
+      content: raw.content.slice(0, MAX_CONTENT_LEN),
+      timestamp: raw.timestamp,
+    };
     await saveMessageToConversation(id, userId, msg);
     return NextResponse.json({ ok: true });
   } catch (e) {

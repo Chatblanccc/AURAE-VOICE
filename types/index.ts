@@ -1,5 +1,7 @@
 export type Role = 'user' | 'assistant' | 'system';
 
+export type Persona = 'alex' | 'trump';
+
 export interface Message {
   id: string;
   role: Role;
@@ -26,6 +28,7 @@ export interface ChatState {
   currentConversationId: string | null;
   isLoading: boolean;
   settings: UserSettings;
+  selectedPersona: Persona;
   // message actions
   appendMessage: (message: Message) => void;
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
@@ -39,4 +42,5 @@ export interface ChatState {
   removeConversation: (id: string) => void;
   setCurrentConversationId: (id: string | null) => void;
   touchConversation: (id: string) => void;
+  setPersona: (persona: Persona) => void;
 }

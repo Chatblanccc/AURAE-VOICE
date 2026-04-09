@@ -72,18 +72,30 @@ if (process.env.WECHAT_CLIENT_ID && process.env.WECHAT_CLIENT_SECRET) {
 // ─── NextAuth export ──────────────────────────────────────────────────────────
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
+  /** Required in production; use `npx auth secret` to generate. Also accepts NEXTAUTH_SECRET. */
+  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/sign-in',
   },
   callbacks: {
+    /** Same-origin only — blocks open redirects from crafted callbackUrl values. */
+    async redirect({ url, baseUrl }) {
+      try {
+        const target = new URL(url, baseUrl);
+        const base = new URL(baseUrl);
+        if (target.origin !== base.origin) return baseUrl;
+        return target.href;
+      } catch {
+        return baseUrl;
+      }
+    },
     async jwt({ token, account }) {
       // Use the provider's stable ID (e.g. Google "sub" claim) instead of the
       // auto-generated UUID that changes on every sign-in.
       if (account?.providerAccountId) {
         token.userId = account.providerAccountId;
         token.sub = account.providerAccountId;
-        console.log('[auth] stable userId set:', account.providerAccountId);
       }
       return token;
     },

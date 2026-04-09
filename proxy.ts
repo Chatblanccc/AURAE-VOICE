@@ -16,6 +16,7 @@ export default auth((req) => {
   // Redirect unauthenticated visitors to /sign-in
   if (!isSignedIn) {
     const signInUrl = new URL('/sign-in', nextUrl.origin);
+    // pathname-only: avoids reflecting arbitrary user-controlled URLs into redirects
     signInUrl.searchParams.set('callbackUrl', nextUrl.pathname);
     return NextResponse.redirect(signInUrl);
   }

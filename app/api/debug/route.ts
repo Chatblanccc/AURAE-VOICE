@@ -7,15 +7,32 @@ export const runtime = 'nodejs';
 
 type S = { user?: { id?: string } | null } | null;
 
+/**
+ * Debug-only endpoint: disabled in production to avoid leaking DB metadata and
+ * cross-tenant identifiers. Enable locally with NODE_ENV=development.
+ */
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
   const session = await auth() as S;
   const userId = session?.user?.id;
-  if (!userId) return NextResponse.json({ error: 'Unauthorized, no userId in session', session }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const url = process.env.DATABASE_URL;
-  if (!url) return NextResponse.json({ error: 'No DATABASE_URL configured' }, { status: 500 });
+  if (!url) {
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
 
-  try { await ensureSchema(); } catch {}
+  try {
+    await ensureSchema();
+  } catch (e) {
+    console.error('[GET /api/debug] ensureSchema:', e);
+    return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
+  }
 
   const sql = neon(url);
   try {
@@ -37,7 +54,6 @@ export async function GET() {
       SELECT id, conversation_id, role, LEFT(content, 60) as preview, timestamp
       FROM messages WHERE user_id = ${userId} ORDER BY timestamp DESC LIMIT 5
     `;
-    const allUserIds = await sql`SELECT DISTINCT user_id FROM conversations UNION SELECT DISTINCT user_id FROM messages`;
 
     return NextResponse.json({
       currentUserId: userId,
@@ -48,9 +64,9 @@ export async function GET() {
       },
       recentConversations: recentConvs,
       recentMessages: recentMsgs,
-      allUserIdsInDb: allUserIds.map(r => r.user_id),
     });
   } catch (e) {
-    return NextResponse.json({ error: String(e), userId }, { status: 500 });
+    console.error('[GET /api/debug]', e);
+    return NextResponse.json({ error: 'Request failed' }, { status: 500 });
   }
 }

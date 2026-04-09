@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useChatStore } from '@/store/useChatStore';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -8,11 +8,16 @@ import { useThemeStore } from '@/store/useThemeStore';
 import { useSession, signOut } from 'next-auth/react';
 import { AvatarScene } from '@/components/AvatarScene';
 import { AvatarCharacter } from '@/components/AvatarCharacter';
+import { TrumpAvatarCharacter } from '@/components/TrumpAvatarCharacter';
 import {
   Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare, Sparkles,
   Send, Keyboard, Sun, Moon, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
+  BookOpen, CheckCircle, Zap, Users,
 } from 'lucide-react';
-import type { Message, Conversation } from '@/types';
+
+import type { Conversation, Persona } from '@/types';
+import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport, UIMessage, generateId } from 'ai';
 
 // ─── CSS ───────────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -38,6 +43,13 @@ const STYLES = `
   @keyframes sceneActiveGlowLight { 0%,100%{box-shadow:0 4px 28px rgba(254,129,19,.22),0 0 0 2px rgba(254,129,19,.30)} 50%{box-shadow:0 6px 40px rgba(254,129,19,.30),0 0 0 2px rgba(254,129,19,.40)} }
   @keyframes sceneThinkGlowLight { 0%,100%{box-shadow:0 4px 24px rgba(100,130,180,.18),0 0 0 1px rgba(100,130,180,.20)} 50%{box-shadow:0 6px 32px rgba(100,130,180,.24),0 0 0 1px rgba(100,130,180,.28)} }
 
+  @keyframes sceneTrumpIdleGlow { 0%,100%{box-shadow:0 0 28px rgba(204,26,26,.15),0 0 60px rgba(204,26,26,.06)} 50%{box-shadow:0 0 36px rgba(204,26,26,.22),0 0 80px rgba(204,26,26,.10)} }
+  @keyframes sceneTrumpActiveGlow { 0%,100%{box-shadow:0 0 48px rgba(204,26,26,.50),0 0 100px rgba(204,26,26,.20)} 50%{box-shadow:0 0 70px rgba(204,26,26,.70),0 0 140px rgba(204,26,26,.30)} }
+  @keyframes sceneTrumpIdleGlowLight { 0%,100%{box-shadow:0 4px 24px rgba(0,0,0,.08),0 0 0 1px rgba(204,26,26,.12)} 50%{box-shadow:0 6px 32px rgba(0,0,0,.11),0 0 0 1px rgba(204,26,26,.18)} }
+  @keyframes sceneTrumpActiveGlowLight { 0%,100%{box-shadow:0 4px 28px rgba(204,26,26,.22),0 0 0 2px rgba(204,26,26,.30)} 50%{box-shadow:0 6px 40px rgba(204,26,26,.30),0 0 0 2px rgba(204,26,26,.40)} }
+
+  @keyframes personaCardIn { from{opacity:0;transform:translateY(14px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+
   .avatar-strip { transition: all .4s cubic-bezier(.4,0,.2,1); }
   @keyframes stripIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
 
@@ -59,64 +71,147 @@ function formatRelativeDate(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-function newId() { return Math.random().toString(36).substring(2, 11); }
-
 function getUserId(session: ReturnType<typeof useSession>['data']) {
   return (session?.user as ({ id?: string } | undefined))?.id;
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+/** Extract plain text from UIMessage parts for TTS */
+function extractText(msg: UIMessage): string {
+  return msg.parts
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+    .map(p => p.text)
+    .join('');
+}
 
-const WaveformBars = ({ active, color }: { active: boolean; color: string }) => {
-  const heights = [38, 62, 82, 52, 72, 88, 48, 68, 58, 78, 44, 65];
+/** Convert a stored Message (role + content string) to UIMessage */
+function toUIMessage(m: { id: string; role: string; content: string }): UIMessage {
+  return {
+    id: m.id,
+    role: m.role as 'user' | 'assistant',
+    parts: [{ type: 'text', text: m.content }],
+  };
+}
+
+// ─── Tool Card Components ─────────────────────────────────────────────────────
+
+const GrammarCard = ({
+  original, corrected, explanation, mode,
+}: { original: string; corrected: string; explanation: string; mode: 'dark' | 'light' }) => (
+  <div className="mt-2 rounded-xl px-3 py-2.5 text-xs space-y-1.5 border"
+    style={{
+      background: mode === 'dark' ? 'rgba(34,197,94,.07)' : 'rgba(22,163,74,.06)',
+      borderColor: mode === 'dark' ? 'rgba(34,197,94,.2)' : 'rgba(22,163,74,.18)',
+    }}>
+    <div className="flex items-center gap-1.5 font-semibold" style={{ color: mode === 'dark' ? '#86efac' : '#15803d' }}>
+      <CheckCircle size={11} /> Grammar note
+    </div>
+    <div className="space-y-1">
+      <p style={{ color: mode === 'dark' ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.4)', textDecoration: 'line-through' }}>{original}</p>
+      <p style={{ color: mode === 'dark' ? '#bbf7d0' : '#166534', fontWeight: 500 }}>→ {corrected}</p>
+      <p style={{ color: mode === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)', fontStyle: 'italic' }}>{explanation}</p>
+    </div>
+  </div>
+);
+
+const VocabularyCard = ({
+  word, partOfSpeech, mode,
+}: { word: string; partOfSpeech?: string; mode: 'dark' | 'light' }) => (
+  <div className="mt-2 rounded-xl px-3 py-2.5 text-xs border"
+    style={{
+      background: mode === 'dark' ? 'rgba(99,102,241,.07)' : 'rgba(79,70,229,.06)',
+      borderColor: mode === 'dark' ? 'rgba(99,102,241,.25)' : 'rgba(79,70,229,.18)',
+    }}>
+    <div className="flex items-center gap-1.5 font-semibold mb-1" style={{ color: mode === 'dark' ? '#a5b4fc' : '#4338ca' }}>
+      <BookOpen size={11} /> Vocabulary
+    </div>
+    <span className="font-bold" style={{ color: mode === 'dark' ? '#c7d2fe' : '#3730a3' }}>{word}</span>
+    {partOfSpeech && (
+      <span className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
+        style={{ background: mode === 'dark' ? 'rgba(99,102,241,.15)' : 'rgba(79,70,229,.1)', color: mode === 'dark' ? '#818cf8' : '#4f46e5' }}>
+        {partOfSpeech}
+      </span>
+    )}
+  </div>
+);
+
+const ChallengeCard = ({
+  challengeType, prompt, hint, mode,
+}: { challengeType: string; prompt: string; hint?: string; mode: 'dark' | 'light' }) => {
+  const labelMap: Record<string, string> = {
+    'fill-in-blank': 'Fill in the blank',
+    'describe-this': 'Describe this',
+    'translate-to-english': 'Translate to English',
+    'use-in-sentence': 'Use in a sentence',
+    'pronunciation': 'Pronunciation',
+  };
   return (
-    <div className="flex items-center justify-center gap-[3px] h-8">
-      {heights.map((h, i) => (
-        <div key={i} className={`w-[3px] rounded-full ${color}`}
-          style={{ height: active ? `${h}%` : '18%', animation: active ? `waveBar .9s ease-in-out ${i * .07}s infinite alternate` : 'none', opacity: active ? 1 : 0.2, transition: 'height .3s,opacity .3s' }} />
-      ))}
+    <div className="mt-2 rounded-xl px-3 py-2.5 text-xs border"
+      style={{
+        background: mode === 'dark' ? 'rgba(251,191,36,.07)' : 'rgba(245,158,11,.06)',
+        borderColor: mode === 'dark' ? 'rgba(251,191,36,.25)' : 'rgba(245,158,11,.22)',
+      }}>
+      <div className="flex items-center gap-1.5 font-semibold mb-1" style={{ color: mode === 'dark' ? '#fde68a' : '#92400e' }}>
+        <Zap size={11} /> {labelMap[challengeType] ?? 'Challenge'}
+      </div>
+      <p style={{ color: mode === 'dark' ? '#fef3c7' : '#78350f' }}>{prompt}</p>
+      {hint && <p className="mt-1 italic" style={{ color: mode === 'dark' ? 'rgba(254,243,199,.55)' : 'rgba(120,53,15,.55)' }}>Hint: {hint}</p>}
     </div>
   );
 };
 
-const ChatBubble = ({ role, content, onReplay }: { role: 'user' | 'assistant'; content: string; onReplay?: () => void }) => {
-  const { theme } = useThemeStore();
-  const u = role === 'user';
+// ─── ChatBubble ───────────────────────────────────────────────────────────────
 
-  // Separate bilingual content (English / Chinese)
-  const hasChinese = /[\u4e00-\u9fff]/.test(content);
+const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
+  message: UIMessage;
+  onReplay?: () => void;
+  speakerName?: string;
+  speakerAccent?: string;
+}) => {
+  const { theme } = useThemeStore();
+  const u = message.role === 'user';
+
+  // Extract primary text content
+  const textParts = message.parts.filter((p): p is { type: 'text'; text: string } => p.type === 'text');
+  const fullText = textParts.map(p => p.text).join('');
+
+  // Bilingual split (English / Chinese)
+  const hasChinese = /[\u4e00-\u9fff]/.test(fullText);
   const engLines: string[] = [];
   const zhLines: string[] = [];
   if (hasChinese) {
-    content.split('\n').map(l => l.trim()).filter(Boolean).forEach(l =>
+    fullText.split('\n').map(l => l.trim()).filter(Boolean).forEach(l =>
       (/[\u4e00-\u9fff]/.test(l) ? zhLines : engLines).push(l)
     );
   }
-  const mainText = hasChinese ? engLines.join('\n') || content : content;
-  const subText  = hasChinese ? zhLines.join('\n') : '';
+  const mainText = hasChinese ? engLines.join('\n') || fullText : fullText;
+  const subText = hasChinese ? zhLines.join('\n') : '';
+
+  // Extract tool parts
+  const toolParts = message.parts.filter(p => p.type.startsWith('tool-'));
+
+  const isStreaming = textParts.some(p => (p as { state?: string }).state === 'streaming');
 
   return (
     <div className={`flex flex-col gap-0.5 ${u ? 'items-end' : 'items-start'}`}
       style={{ animation: 'fadeUp .3s ease-out' }}>
 
-      {/* Sender label */}
       <span className="text-[10px] tracking-wide px-1 select-none"
         style={{ color: theme.textDimmer, fontVariantNumeric: 'tabular-nums' }}>
-        {u ? 'You' : 'Alex'}
+        {u ? 'You' : (speakerName ?? 'Alex')}
       </span>
 
-      {/* Bubble + replay */}
       <div className="group max-w-[78%]">
+        {/* Main text bubble */}
         <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed" style={{
           background: u
-            ? (theme.mode === 'dark' ? 'rgba(254,129,19,.11)' : 'rgba(254,129,19,.10)')
+            ? (theme.mode === 'dark' ? `${speakerAccent ?? '#FE8113'}1C` : `${speakerAccent ?? '#FE8113'}1A`)
             : (theme.mode === 'dark' ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.04)'),
           border: u
-            ? `1px solid rgba(254,129,19,.22)`
+            ? `1px solid ${speakerAccent ?? '#FE8113'}38`
             : `1px solid ${theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'}`,
           backdropFilter: 'blur(10px)',
         }}>
-          {content ? (
+          {fullText ? (
             <>
               <p style={{ color: u ? (theme.bubbleUserText ?? theme.textSecondary) : theme.bubbleAIText, whiteSpace: 'pre-wrap' }}>
                 {mainText}
@@ -136,17 +231,58 @@ const ChatBubble = ({ role, content, onReplay }: { role: 'user' | 'assistant'; c
                 </p>
               )}
             </>
-          ) : (
+          ) : isStreaming ? (
             <div className="flex gap-1 items-center h-4">
               {[0, 1, 2].map(i => (
                 <div key={i} className="w-1.5 h-1.5 rounded-full"
                   style={{ background: 'rgba(254,129,19,.5)', animation: `waveBar .8s ease-in-out ${i * .2}s infinite alternate` }} />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
 
-        {!u && content && onReplay && (
+        {/* Tool cards — rendered outside the bubble, below it */}
+        {!u && toolParts.length > 0 && (
+          <div className="mt-1 space-y-1">
+            {toolParts.map((part, i) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const p = part as any;
+              if (p.state !== 'output-available') return null;
+              const output = p.output;
+              if (!output) return null;
+
+              if (p.type === 'tool-correctGrammar') {
+                return (
+                  <GrammarCard key={i}
+                    original={output.original ?? ''}
+                    corrected={output.corrected ?? ''}
+                    explanation={output.explanation ?? ''}
+                    mode={theme.mode} />
+                );
+              }
+              if (p.type === 'tool-explainVocabulary') {
+                return (
+                  <VocabularyCard key={i}
+                    word={p.input?.word ?? output.word ?? ''}
+                    partOfSpeech={p.input?.partOfSpeech ?? output.partOfSpeech}
+                    mode={theme.mode} />
+                );
+              }
+              if (p.type === 'tool-issueChallenge') {
+                return (
+                  <ChallengeCard key={i}
+                    challengeType={output.type ?? 'fill-in-blank'}
+                    prompt={output.prompt ?? ''}
+                    hint={output.hint}
+                    mode={theme.mode} />
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
+        {!u && fullText && onReplay && (
           <button onClick={onReplay}
             className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer opacity-0 group-hover:opacity-100 pl-1 mt-1"
             style={{ color: theme.textDim }}
@@ -160,6 +296,7 @@ const ChatBubble = ({ role, content, onReplay }: { role: 'user' | 'assistant'; c
   );
 };
 
+// ─── TextInputBar ─────────────────────────────────────────────────────────────
 const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) => {
   const { theme } = useThemeStore();
   const [value, setValue] = useState('');
@@ -187,9 +324,16 @@ const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; di
 const ConversationList = ({
   onClose,
   collapsed = false,
-}: { onClose?: () => void; collapsed?: boolean }) => {
+  onSelectConversation,
+  onNewChat,
+}: {
+  onClose?: () => void;
+  collapsed?: boolean;
+  onSelectConversation: (conv: Conversation) => void;
+  onNewChat: () => void;
+}) => {
   const { theme } = useThemeStore();
-  const { conversations, currentConversationId, setCurrentConversationId, loadMessages, removeConversation, addConversation, clearMessages } = useChatStore();
+  const { conversations, currentConversationId, removeConversation } = useChatStore();
   const { data: session } = useSession();
   const userId = getUserId(session);
   const [loadingId, setLoadingId] = useState<string | null>(null);
@@ -197,12 +341,7 @@ const ConversationList = ({
   const handleSelect = async (conv: Conversation) => {
     if (conv.id === currentConversationId) { onClose?.(); return; }
     setLoadingId(conv.id);
-    setCurrentConversationId(conv.id);
-    try {
-      const res = await fetch(`/api/conversations/${conv.id}/messages`);
-      const msgs: Message[] = await res.json();
-      loadMessages(Array.isArray(msgs) ? msgs : []);
-    } catch { loadMessages([]); }
+    await onSelectConversation(conv);
     setLoadingId(null);
     onClose?.();
   };
@@ -211,38 +350,27 @@ const ConversationList = ({
     e.stopPropagation();
     removeConversation(id);
     if (userId) fetch(`/api/conversations/${id}`, { method: 'DELETE' }).catch(console.error);
-    if (id === currentConversationId) {
-      setCurrentConversationId(null);
-      clearMessages();
-    }
-  };
-
-  const handleNewChat = () => {
-    setCurrentConversationId(null);
-    clearMessages();
-    onClose?.();
+    if (id === currentConversationId) onNewChat();
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* New chat button */}
       {collapsed ? (
-        <button onClick={handleNewChat} title="New Chat"
+        <button onClick={onNewChat} title="New Chat"
           className="mx-auto mb-3 w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0"
           style={{ background: 'linear-gradient(135deg,#FE8113,#D96B0B)', color: '#fff' }}>
           <Plus size={15} />
         </button>
       ) : (
-        <button onClick={handleNewChat}
+        <button onClick={onNewChat}
           className="mx-3 mb-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
           style={{ background: 'linear-gradient(135deg,#FE8113,#D96B0B)', color: '#fff' }}>
           <Plus size={15} /> <span>New Chat 新聊天</span>
         </button>
       )}
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto space-y-0.5"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent`, padding: collapsed ? '0 8px' : '0 8px' }}>
+        style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent`, padding: '0 8px' }}>
         {conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2 opacity-40"
             style={{ color: theme.textMuted }}>
@@ -253,7 +381,6 @@ const ConversationList = ({
           const isActive = conv.id === currentConversationId;
           const isLoading = loadingId === conv.id;
           return collapsed ? (
-            /* ── Collapsed: icon only ── */
             <div key={conv.id} title={conv.title}
               onClick={() => handleSelect(conv)}
               className="relative flex items-center justify-center p-2.5 rounded-xl cursor-pointer transition-all"
@@ -263,15 +390,13 @@ const ConversationList = ({
               }}
               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = theme.bgCard; }}
               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
-              <MessageSquare size={14}
-                style={{ color: isActive ? theme.accentText : theme.textMuted }} />
+              <MessageSquare size={14} style={{ color: isActive ? theme.accentText : theme.textMuted }} />
               {isActive && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r"
                   style={{ background: theme.accentText }} />
               )}
             </div>
           ) : (
-            /* ── Expanded: full row ── */
             <div key={conv.id}
               onClick={() => handleSelect(conv)}
               className="group relative px-3 py-2.5 rounded-xl cursor-pointer transition-all flex items-start gap-2.5"
@@ -313,7 +438,6 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
   const { data: session } = useSession();
   const { theme } = useThemeStore();
   if (!session?.user) return null;
-
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-2">
@@ -332,7 +456,6 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
       </div>
     );
   }
-
   return (
     <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: theme.bgCard }}>
       <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
@@ -369,198 +492,273 @@ const ThemeToggle = () => {
   );
 };
 
+// ─── Persona config ───────────────────────────────────────────────────────────
+const PERSONA_META: Record<Persona, {
+  name: string; tagline: string; accent: string; accentBg: string; voiceId: string | null;
+}> = {
+  alex:  { name: 'Alex',   tagline: 'Chill friend · Cali vibes',  accent: '#FE8113', accentBg: 'rgba(254,129,19,.10)', voiceId: null },
+  trump: { name: 'Donald', tagline: '45th President · Tremendous!', accent: '#CC1A1A', accentBg: 'rgba(204,26,26,.10)',   voiceId: 'trump' },
+};
+
+// ─── PersonaCard ──────────────────────────────────────────────────────────────
+const PersonaCard = ({
+  persona, selected, onSelect,
+}: { persona: Persona; selected: boolean; onSelect: () => void }) => {
+  const { theme } = useThemeStore();
+  const meta = PERSONA_META[persona];
+  const [hovered, setHovered] = useState(false);
+  const highlighted = selected || hovered;
+  return (
+    <button
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="flex flex-col items-center gap-3 px-5 py-4 rounded-2xl border-2 transition-all cursor-pointer"
+      style={{
+        borderColor: highlighted ? meta.accent : (theme.mode === 'dark' ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)'),
+        background: highlighted ? meta.accentBg : (theme.mode === 'dark' ? 'rgba(255,255,255,.03)' : 'rgba(0,0,0,.02)'),
+        boxShadow: selected ? `0 0 20px ${meta.accent}30` : 'none',
+        animation: 'personaCardIn .35s ease-out both',
+        minWidth: 120,
+      }}>
+      <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0"
+        style={{
+          background: highlighted ? meta.accentBg : (theme.mode === 'dark' ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.04)'),
+          border: `1px solid ${highlighted ? meta.accent + '40' : 'transparent'}`,
+        }}>
+        {persona === 'trump'
+          ? <TrumpAvatarCharacter size={54} />
+          : <AvatarCharacter size={54} />}
+      </div>
+      <div className="flex flex-col items-center gap-0.5">
+        <span className="text-sm font-bold" style={{ color: highlighted ? meta.accent : theme.textPrimary }}>
+          {meta.name}
+        </span>
+        <span className="text-[10px] text-center leading-snug" style={{ color: theme.textMuted, maxWidth: 110 }}>
+          {meta.tagline}
+        </span>
+      </div>
+      {selected && (
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: meta.accent + '20', color: meta.accent }}>
+          Selected
+        </span>
+      )}
+    </button>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════════════════════
 export const VoiceInterface = () => {
   const {
-    messages, appendMessage, isLoading, setLoading, settings, clearMessages,
-    loadMessages, setConversations, conversations, currentConversationId,
+    settings,
+    selectedPersona, setPersona,
+    setConversations, conversations, currentConversationId,
     setCurrentConversationId, addConversation, touchConversation: touchConvStore,
+    removeConversation,
   } = useChatStore();
   const { isListening, transcript, error: speechError, startListening, setTranscript } = useSpeechToText();
   const { speak, stop, unlock, isSpeaking } = useTextToSpeech();
   const { theme, toggleTheme, mode } = useThemeStore();
   const { data: session } = useSession();
-  // userId is only needed for loading conversations on mount (handled in useEffect below)
   const userId = getUserId(session);
 
-  const [lastProcessedMsgId, setLastProcessedMsgId] = useState<string | null>(null);
+  // Derive voice from persona — no separate voice state needed
+  const activeVoiceId = PERSONA_META[selectedPersona].voiceId;
+
   const [inputLang, setInputLang] = useState<'en-US' | 'zh-CN'>('en-US');
+  const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false);
   const [showTextInput, setShowTextInput] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [brandIconHovered, setBrandIconHovered] = useState(false);
 
-  const handleSendRef = useRef<(c: string) => void>(() => { });
-  const desktopMsgRef = useRef<HTMLDivElement>(null);
-  const mobileMsgRef = useRef<HTMLDivElement>(null);
+  // Refs for passing dynamic values into the transport body function
   const currentConvIdRef = useRef<string | null>(currentConversationId);
+  const currentConvTitleRef = useRef<string>('');
+  const settingsRef = useRef(settings);
+  const selectedPersonaRef = useRef<Persona>(selectedPersona);
   const prevUserIdRef = useRef<string | undefined>(undefined);
 
-  // keep ref in sync so handleSend closure always has the latest id
   useEffect(() => { currentConvIdRef.current = currentConversationId; }, [currentConversationId]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+  useEffect(() => { selectedPersonaRef.current = selectedPersona; }, [selectedPersona]);
 
-  const isActive = isListening || isSpeaking || isLoading;
-  const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : 'Ready';
-  const statusColor = isListening ? '#FFA855' : isSpeaking ? '#FF9E45' : isLoading ? '#94a3b8' : theme.textMuted;
+  // ── useChat with AI SDK ────────────────────────────────────────────────────
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: '/api/chat',
+    body: () => ({
+      settings: settingsRef.current,
+      conversationId: currentConvIdRef.current,
+      conversationTitle: currentConvTitleRef.current,
+      persona: selectedPersonaRef.current,
+    }),
+  }), []);
 
-  // ── Load conversations on login / session change ────────────────────────────
-  useEffect(() => {
-    if (!userId) return;
-    // Skip if we already loaded for this exact userId
-    if (prevUserIdRef.current === userId) return;
-    prevUserIdRef.current = userId;
+  const {
+    messages: chatMessages,
+    sendMessage,
+    setMessages,
+    status,
+    stop: stopChat,
+  } = useChat({ transport });
 
-    let cancelled = false;
+  const isLoading = status === 'streaming' || status === 'submitted';
 
-    (async () => {
-      try {
-        const res = await fetch('/api/conversations');
-        if (!res.ok) { console.error('[load] GET /api/conversations', res.status); return; }
-        const list: Conversation[] = await res.json();
-        if (cancelled) return;
-        if (!Array.isArray(list) || list.length === 0) {
-          setConversations([]);
-          return;
-        }
-        setConversations(list);
-        // Auto-load the most recently updated conversation
-        const latest = list[0];
-        setCurrentConversationId(latest.id);
-        currentConvIdRef.current = latest.id;
-        const msgRes = await fetch(`/api/conversations/${latest.id}/messages`);
-        if (cancelled) return;
-        const msgs: Message[] = await msgRes.json();
-        loadMessages(Array.isArray(msgs) ? msgs : []);
-      } catch (e) {
-        console.error('[load] Failed to load conversations:', e);
-        // Reset so a re-render / session refresh can retry
-        prevUserIdRef.current = undefined;
-      }
-    })();
-
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-
-  // ── Auto-scroll ──────────────────────────────────────────────────────────────
+  // ── Auto-scroll ────────────────────────────────────────────────────────────
+  const desktopMsgRef = useRef<HTMLDivElement>(null);
+  const mobileMsgRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (desktopMsgRef.current) desktopMsgRef.current.scrollTop = desktopMsgRef.current.scrollHeight;
     if (mobileMsgRef.current) mobileMsgRef.current.scrollTop = mobileMsgRef.current.scrollHeight;
-  }, [messages]);
+  }, [chatMessages]);
 
-  // ── Auto-speak new AI messages ───────────────────────────────────────────────
+  // ── Auto-speak when streaming finishes ────────────────────────────────────
+  const prevStatus = useRef(status);
   useEffect(() => {
-    const last = messages[messages.length - 1];
-    if (last?.role === 'assistant' && last.id !== lastProcessedMsgId && !isLoading && last.content.trim()) {
-      speak(last.content);
-      setLastProcessedMsgId(last.id);
+    if (prevStatus.current !== 'ready' && status === 'ready') {
+      const last = chatMessages[chatMessages.length - 1];
+      if (last?.role === 'assistant') {
+        const text = extractText(last);
+        if (text.trim()) speak(text, activeVoiceId);
+      }
+      // Update conversation sort order in UI
+      if (currentConvIdRef.current) touchConvStore(currentConvIdRef.current);
     }
-  }, [messages, isLoading, speak, lastProcessedMsgId]);
+    prevStatus.current = status;
+  }, [status, chatMessages, speak, activeVoiceId, touchConvStore]);
 
-  // ── Voice → send ─────────────────────────────────────────────────────────────
+  // ── Voice → send ──────────────────────────────────────────────────────────
+  const handleSendRef = useRef<(c: string) => void>(() => {});
+
+  const handleSend = useCallback((content: string) => {
+    if (!content.trim()) return;
+
+    let convId = currentConvIdRef.current;
+    let convTitle = '';
+
+    if (!convId) {
+      convId = generateId();
+      convTitle = content.length > 45 ? content.slice(0, 45) + '…' : content;
+      const newConv: Conversation = { id: convId, title: convTitle, created_at: Date.now(), updated_at: Date.now() };
+      addConversation(newConv);
+      setCurrentConversationId(convId);
+      currentConvIdRef.current = convId;
+      currentConvTitleRef.current = convTitle;
+    } else {
+      const existing = conversations.find(c => c.id === convId);
+      currentConvTitleRef.current = existing?.title ?? '';
+    }
+
+    setTranscript('');
+    stop();
+    sendMessage({ text: content });
+  }, [addConversation, conversations, sendMessage, setCurrentConversationId, setTranscript, stop]);
+
+  useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
+
   useEffect(() => {
     if (transcript && !isListening) handleSendRef.current(transcript);
   }, [transcript, isListening]);
 
-  // ── Speech error → show text input ───────────────────────────────────────────
+  // ── Speech error → show text input ────────────────────────────────────────
   useEffect(() => {
     if (speechError === 'network' || speechError === 'not-allowed' || speechError === 'service-not-allowed') {
       setShowTextInput(true);
     }
   }, [speechError]);
 
-  // ── handleSend ───────────────────────────────────────────────────────────────
-  const handleSend = useCallback(async (content: string) => {
-    if (!content.trim()) return;
+  // ── Load conversations on login ────────────────────────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    if (prevUserIdRef.current === userId) return;
+    prevUserIdRef.current = userId;
+    let cancelled = false;
 
-    // Get or lazily create a conversation (UI state only — server handles DB)
-    let convId = currentConvIdRef.current;
-    let convTitle = '';
-    if (!convId) {
-      convId = newId();
-      convTitle = content.length > 45 ? content.slice(0, 45) + '…' : content;
-      const newConv: Conversation = { id: convId, title: convTitle, created_at: Date.now(), updated_at: Date.now() };
-      addConversation(newConv);
-      setCurrentConversationId(convId);
-      currentConvIdRef.current = convId;
-    } else {
-      // Use the existing conversation's title from the store
-      const existing = useChatStore.getState().conversations.find(c => c.id === convId);
-      convTitle = existing?.title ?? '';
-    }
-
-    const userMsgId = newId();
-    const userMsg: Message = { id: userMsgId, role: 'user', content, timestamp: Date.now() };
-    appendMessage(userMsg);
-    setTranscript('');
-    setLoading(true);
-    stop();
-
-    try {
-      const currentMessages = useChatStore.getState().messages;
-      // Pass conversationId + userMsgId so the server can persist everything
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...currentMessages.map(m => ({ role: m.role, content: m.content }))],
-          settings,
-          conversationId: convId,
-          conversationTitle: convTitle,
-          userMsgId,
-        }),
-      });
-      if (!res.ok) throw new Error(`API ${res.status}`);
-
-      const aiMsgId = newId();
-      const aiMsg: Message = { id: aiMsgId, role: 'assistant', content: '', timestamp: Date.now() };
-      appendMessage(aiMsg);
-
-      const reader = res.body?.getReader();
-      let buf = '';
-      while (true) {
-        const { done, value } = await reader?.read() || { done: true, value: undefined };
-        if (done) break;
-        for (const line of new TextDecoder().decode(value).split('\n')) {
-          if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-            try {
-              buf += JSON.parse(line.slice(6)).choices[0]?.delta?.content || '';
-              useChatStore.setState(s => {
-                const m = [...s.messages];
-                const idx = m.findIndex(x => x.id === aiMsgId);
-                if (idx !== -1) m[idx] = { ...m[idx], content: buf };
-                return { messages: m };
-              });
-            } catch { /* ignore malformed SSE */ }
-          }
-        }
+    (async () => {
+      try {
+        const res = await fetch('/api/conversations');
+        if (!res.ok) return;
+        const list: Conversation[] = await res.json();
+        if (cancelled) return;
+        if (!Array.isArray(list) || list.length === 0) { setConversations([]); return; }
+        setConversations(list);
+        const latest = list[0];
+        setCurrentConversationId(latest.id);
+        currentConvIdRef.current = latest.id;
+        currentConvTitleRef.current = latest.title;
+        // Load messages for the latest conversation
+        const msgRes = await fetch(`/api/conversations/${latest.id}/messages`);
+        if (cancelled) return;
+        const msgs = await msgRes.json();
+        if (Array.isArray(msgs)) setMessages(msgs.map(toUIMessage));
+      } catch (e) {
+        console.error('[load] conversations:', e);
+        prevUserIdRef.current = undefined;
       }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
-      // Bubble conversation to top of list (UI only — server already updated DB)
-      if (convId) touchConvStore(convId);
-    } catch (e) { console.error('Chat error:', e); }
-    finally { setLoading(false); }
-  }, [appendMessage, settings, setLoading, setTranscript, stop, addConversation, setCurrentConversationId, touchConvStore]);
+  // ── Select a conversation ──────────────────────────────────────────────────
+  const handleSelectConversation = useCallback(async (conv: Conversation) => {
+    setCurrentConversationId(conv.id);
+    currentConvIdRef.current = conv.id;
+    currentConvTitleRef.current = conv.title;
+    try {
+      const res = await fetch(`/api/conversations/${conv.id}/messages`);
+      const msgs = await res.json();
+      setMessages(Array.isArray(msgs) ? msgs.map(toUIMessage) : []);
+    } catch { setMessages([]); }
+  }, [setCurrentConversationId, setMessages]);
 
-  useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
+  // ── New chat ──────────────────────────────────────────────────────────────
+  const handleNewChat = useCallback(() => {
+    setCurrentConversationId(null);
+    currentConvIdRef.current = null;
+    currentConvTitleRef.current = '';
+    setMessages([]);
+    stop();
+  }, [setCurrentConversationId, setMessages, stop]);
 
-  const handleMicClick = useCallback(() => { unlock(); stop(); startListening(inputLang); }, [unlock, stop, startListening, inputLang]);
-  const handleReplay = useCallback((t: string) => { unlock(); speak(t); }, [unlock, speak]);
+  // ── Clear / delete current conversation ──────────────────────────────────
   const handleClear = useCallback(async () => {
     const convId = currentConvIdRef.current;
-    clearMessages();
+    setMessages([]);
     stop();
     if (convId) {
-      // Remove from UI immediately
-      useChatStore.getState().removeConversation(convId);
+      removeConversation(convId);
       setCurrentConversationId(null);
-      // Delete from DB (no auth check needed — server verifies session)
+      currentConvIdRef.current = null;
       fetch(`/api/conversations/${convId}`, { method: 'DELETE' }).catch(console.error);
     }
-  }, [clearMessages, stop, setCurrentConversationId]);
+  }, [removeConversation, setCurrentConversationId, setMessages, stop]);
+
+  const handleMicClick = useCallback(() => { unlock(); stop(); startListening(inputLang); }, [unlock, stop, startListening, inputLang]);
+  const handleReplay = useCallback((text: string) => { unlock(); speak(text, activeVoiceId); }, [unlock, speak, activeVoiceId]);
   const handleTextSend = useCallback((text: string) => { unlock(); handleSendRef.current(text); }, [unlock]);
 
-  // ── Speech error banner ───────────────────────────────────────────────────────
+  // ── Persona switch ─────────────────────────────────────────────────────────
+  const handlePersonaSwitch = useCallback((p: Persona) => {
+    if (p === selectedPersona) { setShowPersonaSwitcher(false); return; }
+    setPersona(p);
+    setShowPersonaSwitcher(false);
+    // Start a fresh conversation with the new persona
+    setCurrentConversationId(null);
+    currentConvIdRef.current = null;
+    currentConvTitleRef.current = '';
+    setMessages([]);
+    stop();
+  }, [selectedPersona, setPersona, setCurrentConversationId, setMessages, stop]);
+
+  // ── Status derived values ─────────────────────────────────────────────────
+  const isActive = isListening || isSpeaking || isLoading;
+  const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : 'Ready';
+  const personaAccent = PERSONA_META[selectedPersona].accent;
+  const statusColor = isListening ? personaAccent : isSpeaking ? personaAccent : isLoading ? '#94a3b8' : theme.textMuted;
+
+  // ── Speech error banner ───────────────────────────────────────────────────
   const speechErrorBanner = speechError === 'network' ? (
     <div className="flex flex-col gap-1.5 px-4 py-3 rounded-xl text-xs border text-center mx-4 mb-2"
       style={{ background: 'rgba(254,129,19,.06)', borderColor: 'rgba(254,129,19,.2)', color: 'rgba(255,175,100,.8)' }}>
@@ -574,46 +772,49 @@ export const VoiceInterface = () => {
     </div>
   ) : null;
 
-  // ── Controls strip ────────────────────────────────────────────────────────────
-  const Controls = () => (
+  // ── Controls strip ────────────────────────────────────────────────────────
+  const Controls = () => {
+    const pa = PERSONA_META[selectedPersona].accent;
+    const paRgb = selectedPersona === 'trump' ? '204,26,26' : '254,129,19';
+    return (
     <div className="flex items-center justify-center gap-3">
-      {/* Language toggle */}
       <button onClick={() => setInputLang(l => l === 'en-US' ? 'zh-CN' : 'en-US')}
         className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer"
-        style={{ borderColor: 'rgba(254,129,19,.2)', background: 'rgba(254,129,19,.06)', color: theme.accentPale }}>
+        style={{ borderColor: `rgba(${paRgb},.2)`, background: `rgba(${paRgb},.06)`, color: theme.accentPale }}>
         {inputLang === 'en-US' ? 'EN' : '中文'}
       </button>
 
-      {/* Mic / Stop button */}
       <button
         onClick={isListening ? () => setTranscript('') : handleMicClick}
         className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative"
         style={{
-          background: isListening ? 'rgba(254,129,19,.15)' : 'linear-gradient(135deg,#FE8113,#D96B0B)',
-          border: isListening ? '2px solid rgba(254,129,19,.5)' : '2px solid transparent',
-          boxShadow: isListening ? '0 0 20px rgba(254,129,19,.3)' : '0 4px 16px rgba(254,129,19,.25)',
+          background: isListening ? `rgba(${paRgb},.15)` : `linear-gradient(135deg,${pa},${selectedPersona === 'trump' ? '#991010' : '#D96B0B'})`,
+          border: isListening ? `2px solid rgba(${paRgb},.5)` : '2px solid transparent',
+          boxShadow: isListening ? `0 0 20px rgba(${paRgb},.3)` : `0 4px 16px rgba(${paRgb},.25)`,
         }}>
         {isListening
-          ? <MicOff size={22} style={{ color: '#FE8113' }} />
+          ? <MicOff size={22} style={{ color: pa }} />
           : <Mic size={22} className="text-white" />}
-        {isListening && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-orange-400" style={{ animation: 'pingRing 1s ease-out infinite' }} />}
+        {isListening && <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: pa, animation: 'pingRing 1s ease-out infinite' }} />}
       </button>
 
-      {/* Stop TTS */}
-      <button onClick={() => stop()}
+      <button onClick={() => { stop(); stopChat(); }}
         className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer"
-        style={{ background: isSpeaking ? 'rgba(254,129,19,.15)' : theme.bgInput, border: `1px solid ${isSpeaking ? 'rgba(254,129,19,.3)' : theme.bgInputBorder}`, color: isSpeaking ? '#FE8113' : theme.textMuted }}>
+        style={{ background: isSpeaking ? `rgba(${paRgb},.15)` : theme.bgInput, border: `1px solid ${isSpeaking ? `rgba(${paRgb},.3)` : theme.bgInputBorder}`, color: isSpeaking ? pa : theme.textMuted }}>
         <Square size={14} />
       </button>
 
-      {/* Text input toggle */}
       <button onClick={() => setShowTextInput(s => !s)}
         className="w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer"
-        style={{ background: showTextInput ? 'rgba(254,129,19,.15)' : theme.bgInput, border: `1px solid ${showTextInput ? 'rgba(254,129,19,.35)' : theme.bgInputBorder}`, color: showTextInput ? '#FE8113' : theme.textMuted }}>
+        style={{ background: showTextInput ? `rgba(${paRgb},.15)` : theme.bgInput, border: `1px solid ${showTextInput ? `rgba(${paRgb},.35)` : theme.bgInputBorder}`, color: showTextInput ? pa : theme.textMuted }}>
         <Keyboard size={15} />
       </button>
     </div>
-  );
+    );
+  };
+
+  // ── Filtered messages for display ─────────────────────────────────────────
+  const displayMessages = chatMessages.filter(m => m.role === 'user' || m.role === 'assistant');
 
   // ─────────────────────────────────────────────────────────────────────────────
   //  RENDER
@@ -637,11 +838,8 @@ export const VoiceInterface = () => {
             backdropFilter: 'blur(12px)',
           }}>
 
-          {/* ── Brand header ─────────────────────────────────────────────── */}
           <div className="flex items-center gap-2.5 px-3 pt-4 pb-3 flex-shrink-0">
-
             {sidebarCollapsed ? (
-              /* ── Collapsed: brand icon morphs into toggle on hover ─────── */
               <button
                 onClick={() => setSidebarCollapsed(false)}
                 onMouseEnter={() => setBrandIconHovered(true)}
@@ -649,9 +847,7 @@ export const VoiceInterface = () => {
                 title="Expand sidebar"
                 className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-200 mx-auto"
                 style={{
-                  background: brandIconHovered
-                    ? theme.bgInput
-                    : 'linear-gradient(135deg,#D96B0B,#FE8113)',
+                  background: brandIconHovered ? theme.bgInput : 'linear-gradient(135deg,#D96B0B,#FE8113)',
                   border: brandIconHovered ? `1px solid rgba(254,129,19,.35)` : '1px solid transparent',
                 }}>
                 {brandIconHovered
@@ -659,7 +855,6 @@ export const VoiceInterface = () => {
                   : <Sparkles size={14} className="text-white" />}
               </button>
             ) : (
-              /* ── Expanded: brand icon + text + theme + close toggle ────── */
               <>
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'linear-gradient(135deg,#D96B0B,#FE8113)' }}>
@@ -683,18 +878,19 @@ export const VoiceInterface = () => {
             )}
           </div>
 
-          {/* ── Conversation list ─────────────────────────────────────────── */}
           <div className="flex-1 overflow-hidden flex flex-col min-h-0 pb-2 px-1">
-            <ConversationList collapsed={sidebarCollapsed} />
+            <ConversationList
+              collapsed={sidebarCollapsed}
+              onSelectConversation={handleSelectConversation}
+              onNewChat={handleNewChat}
+            />
           </div>
 
-          {/* ── User info footer ─────────────────────────────────────────── */}
           <div className="border-t flex-shrink-0"
             style={{
               borderColor: theme.bgSidebarBorder,
               padding: sidebarCollapsed ? '10px 8px' : '10px 12px',
             }}>
-            {/* ThemeToggle moves into footer when collapsed */}
             {sidebarCollapsed
               ? (
                 <div className="flex flex-col items-center gap-2">
@@ -713,64 +909,104 @@ export const VoiceInterface = () => {
         {/* ── Main chat area ────────────────────────────────────────────────── */}
         <main className="flex-1 flex flex-col overflow-hidden" style={{ background: theme.bgMain }}>
 
-          {/* Avatar strip — full when idle, compact bar when chatting */}
-          {messages.length === 0 ? (
-            /* ── Idle: full centred avatar ─────────────────────────────── */
+          {displayMessages.length === 0 ? (
             <div className="avatar-strip flex-shrink-0 flex flex-col items-center gap-1 pt-5 pb-2 relative z-10"
               style={{ borderBottom: `1px solid ${theme.separatorColor}` }}>
               <div className="flex items-center gap-2 px-3.5 py-1 rounded-full border mb-1"
-                style={{ background: theme.bgStatusPill, borderColor: 'rgba(254,129,19,.12)' }}>
+                style={{ background: theme.bgStatusPill, borderColor: `${personaAccent}20` }}>
                 <span className="w-1.5 h-1.5 rounded-full transition-all duration-300"
                   style={{ background: statusColor, boxShadow: isActive ? `0 0 6px ${statusColor}` : 'none' }} />
                 <span className="text-[11px] font-medium tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
               </div>
-              <AvatarScene isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={140} />
-              <WaveformBars active={isListening || isSpeaking} color={isListening ? 'bg-[#FE8113]' : 'bg-[#FF9E45]'} />
+              <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={140} />
+              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
             </div>
           ) : (
-            /* ── Active: compact horizontal strip ──────────────────────── */
             <div className="avatar-strip flex-shrink-0 flex items-center gap-3 px-5 py-2.5 border-b relative z-10"
               style={{ borderColor: theme.separatorColor, animation: 'stripIn .35s ease-out' }}>
-              {/* Mini avatar — AvatarCharacter gives just the SVG (with mouth animation) */}
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{
                   background: theme.bgAvatarCard,
-                  border: `1px solid ${isActive ? 'rgba(254,129,19,.35)' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
-                  boxShadow: isActive ? '0 0 16px rgba(254,129,19,.24)' : 'none',
+                  border: `1px solid ${isActive ? personaAccent + '58' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
+                  boxShadow: isActive ? `0 0 16px ${personaAccent}40` : 'none',
                   transition: 'box-shadow .4s, border-color .4s',
                   overflow: 'hidden',
                 }}>
-                <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
+                {selectedPersona === 'trump'
+                  ? <TrumpAvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
+                  : <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />}
               </div>
-              {/* Name + status */}
               <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold leading-none" style={{ color: theme.textPrimary }}>Alex</span>
+                <span className="text-xs font-semibold leading-none" style={{ color: theme.textPrimary }}>
+                  {PERSONA_META[selectedPersona].name}
+                </span>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300"
                     style={{ background: statusColor, boxShadow: isActive ? `0 0 5px ${statusColor}` : 'none' }} />
                   <span className="text-[10px] tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
                 </div>
               </div>
-              {/* Compact waveform */}
-              <div className="ml-auto">
-                <WaveformBars active={isListening || isSpeaking} color={isListening ? 'bg-[#FE8113]' : 'bg-[#FF9E45]'} />
+              {/* Persona switcher */}
+              <div className="ml-auto flex items-center gap-2 relative">
+                <button
+                  onClick={() => setShowPersonaSwitcher(s => !s)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium border transition-all cursor-pointer"
+                  style={{
+                    borderColor: showPersonaSwitcher ? personaAccent + '50' : (theme.mode === 'dark' ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.1)'),
+                    background: showPersonaSwitcher ? PERSONA_META[selectedPersona].accentBg : theme.bgInput,
+                    color: showPersonaSwitcher ? personaAccent : theme.textMuted,
+                  }}
+                  title="Switch character">
+                  <Users size={11} />
+                  <span>Switch</span>
+                </button>
+                {showPersonaSwitcher && (
+                  <div className="absolute right-0 top-full mt-1.5 z-50 flex gap-2 p-2 rounded-2xl border shadow-xl"
+                    style={{ background: theme.bgSidebar, borderColor: theme.bgSidebarBorder, animation: 'fadeUp .2s ease-out' }}>
+                    {(['alex', 'trump'] as Persona[]).map(p => (
+                      <button key={p} onClick={() => handlePersonaSwitch(p)}
+                        className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border transition-all cursor-pointer"
+                        style={{
+                          borderColor: selectedPersona === p ? PERSONA_META[p].accent + '60' : 'transparent',
+                          background: selectedPersona === p ? PERSONA_META[p].accentBg : 'transparent',
+                          color: selectedPersona === p ? PERSONA_META[p].accent : theme.textMuted,
+                        }}>
+                        <div className="w-10 h-10 rounded-xl overflow-hidden"
+                          style={{ background: theme.bgAvatarCard }}>
+                          {p === 'trump'
+                            ? <TrumpAvatarCharacter size={40} />
+                            : <AvatarCharacter size={40} />}
+                        </div>
+                        <span className="text-[10px] font-semibold">{PERSONA_META[p].name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
               </div>
             </div>
           )}
 
-          {/* Message history */}
           <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent` }}>
-            {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center gap-3"
-                style={{ opacity: 0.35, color: theme.textMuted }}>
-                <MessageSquare size={32} />
-                <p className="text-sm">Start a conversation…</p>
-                <p className="text-xs">Click the mic or type a message below.</p>
+            {displayMessages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-center gap-6">
+                <div>
+                  <p className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>Choose who you&apos;re talking to</p>
+                  <p className="text-xs" style={{ color: theme.textMuted }}>Your conversation partner will shape the whole experience</p>
+                </div>
+                <div className="flex gap-4">
+                  {(['alex', 'trump'] as Persona[]).map(p => (
+                    <PersonaCard key={p} persona={p} selected={selectedPersona === p} onSelect={() => setPersona(p)} />
+                  ))}
+                </div>
+                <p className="text-xs" style={{ color: theme.textDimmer }}>Click the mic or type below to start</p>
               </div>
-            ) : messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => (
-              <ChatBubble key={m.id} role={m.role as 'user' | 'assistant'} content={m.content}
-                onReplay={m.role === 'assistant' ? () => handleReplay(m.content) : undefined} />
+            ) : displayMessages.map(m => (
+              <ChatBubble key={m.id} message={m}
+                speakerName={PERSONA_META[selectedPersona].name}
+                speakerAccent={personaAccent}
+                onReplay={m.role === 'assistant' ? () => handleReplay(extractText(m)) : undefined} />
             ))}
             {isListening && transcript && (
               <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .25s ease-out' }}>
@@ -785,7 +1021,6 @@ export const VoiceInterface = () => {
 
           {speechErrorBanner}
 
-          {/* Controls footer */}
           <div className="flex-shrink-0 px-6 pt-3 pb-5 border-t"
             style={{ borderColor: theme.bgFooterBorder, background: theme.bgFooter, backdropFilter: 'blur(20px)' }}>
             {showTextInput && (
@@ -805,6 +1040,7 @@ export const VoiceInterface = () => {
                 </button>
                 <span className="text-[10px]" style={{ color: theme.textDimmer }}>
                   {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
+                  {selectedPersona === 'trump' && ' · 🇺🇸 Trump voice'}
                 </span>
               </div>
             </div>
@@ -816,7 +1052,6 @@ export const VoiceInterface = () => {
       <div className="flex lg:hidden flex-col h-screen w-full overflow-hidden select-none"
         style={{ background: theme.bgMain }}>
 
-        {/* Decorative blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-28 -left-28 w-72 h-72 rounded-full"
             style={{ background: `radial-gradient(circle,${theme.glowStrong} 0%,transparent 70%)` }} />
@@ -824,7 +1059,6 @@ export const VoiceInterface = () => {
             style={{ background: `radial-gradient(circle,${theme.glowSubtle} 0%,transparent 70%)` }} />
         </div>
 
-        {/* Mobile header */}
         <header className="relative z-10 flex items-center justify-between px-4 pt-12 pb-3">
           <div className="flex items-center gap-2">
             <button onClick={() => setShowMobileDrawer(true)}
@@ -854,63 +1088,98 @@ export const VoiceInterface = () => {
           </div>
         </header>
 
-        {/* Avatar — full when idle, compact strip when chatting */}
-        {messages.length === 0 ? (
-          /* ── Idle: full centred avatar ───────────────────────────────── */
+        {displayMessages.length === 0 ? (
           <div className="avatar-strip flex-shrink-0 relative z-10 flex flex-col items-center gap-1 pt-2 pb-1">
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border"
-              style={{ background: theme.bgStatusPill, borderColor: 'rgba(254,129,19,.12)' }}>
+              style={{ background: theme.bgStatusPill, borderColor: `${personaAccent}20` }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: statusColor }} />
               <span className="text-[10px] font-medium" style={{ color: statusColor }}>{statusLabel}</span>
             </div>
-            <AvatarScene isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={110} />
-            <WaveformBars active={isListening || isSpeaking} color={isListening ? 'bg-[#FE8113]' : 'bg-[#FF9E45]'} />
+            <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={110} />
+            <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
           </div>
         ) : (
-          /* ── Active: compact horizontal strip ───────────────────────── */
           <div className="avatar-strip flex-shrink-0 relative z-10 flex items-center gap-3 px-4 py-2 border-b"
             style={{ borderColor: theme.separatorColor, animation: 'stripIn .35s ease-out' }}>
-            {/* Mini avatar — AvatarCharacter gives just the SVG (with mouth animation) */}
             <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
               style={{
                 background: theme.bgAvatarCard,
-                border: `1px solid ${isActive ? 'rgba(254,129,19,.35)' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
-                boxShadow: isActive ? '0 0 16px rgba(254,129,19,.24)' : 'none',
+                border: `1px solid ${isActive ? personaAccent + '58' : (theme.mode === 'dark' ? 'rgba(255,255,255,.09)' : 'rgba(0,0,0,.09)')}`,
+                boxShadow: isActive ? `0 0 16px ${personaAccent}40` : 'none',
                 transition: 'box-shadow .4s, border-color .4s',
                 overflow: 'hidden',
               }}>
-              <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
+              {selectedPersona === 'trump'
+                ? <TrumpAvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />
+                : <AvatarCharacter isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={34} />}
             </div>
-
-            {/* Name + status */}
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-xs font-semibold leading-none truncate" style={{ color: theme.textPrimary }}>Alex</span>
+              <span className="text-xs font-semibold leading-none truncate" style={{ color: theme.textPrimary }}>
+                {PERSONA_META[selectedPersona].name}
+              </span>
               <div className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-all duration-300"
                   style={{ background: statusColor, boxShadow: isActive ? `0 0 5px ${statusColor}` : 'none' }} />
                 <span className="text-[10px] tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
               </div>
             </div>
-
-            {/* Compact waveform */}
-            <div className="flex-shrink-0">
-              <WaveformBars active={isListening || isSpeaking} color={isListening ? 'bg-[#FE8113]' : 'bg-[#FF9E45]'} />
+            <div className="flex-shrink-0 flex items-center gap-2">
+              <button
+                onClick={() => setShowPersonaSwitcher(s => !s)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center border cursor-pointer transition-all"
+                style={{
+                  borderColor: showPersonaSwitcher ? personaAccent + '50' : theme.bgInputBorder,
+                  background: showPersonaSwitcher ? PERSONA_META[selectedPersona].accentBg : theme.bgInput,
+                  color: showPersonaSwitcher ? personaAccent : theme.textMuted,
+                }}
+                title="Switch character">
+                <Users size={13} />
+              </button>
+              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
             </div>
           </div>
         )}
 
-        {/* Messages */}
+        {/* Mobile persona switcher overlay */}
+        {showPersonaSwitcher && (
+          <div className="relative z-20 flex justify-center gap-3 px-4 pt-2 pb-1"
+            style={{ animation: 'fadeUp .2s ease-out' }}>
+            {(['alex', 'trump'] as Persona[]).map(p => (
+              <button key={p} onClick={() => handlePersonaSwitch(p)}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer"
+                style={{
+                  borderColor: selectedPersona === p ? PERSONA_META[p].accent + '60' : theme.bgInputBorder,
+                  background: selectedPersona === p ? PERSONA_META[p].accentBg : theme.bgInput,
+                  color: selectedPersona === p ? PERSONA_META[p].accent : theme.textMuted,
+                }}>
+                <div className="w-8 h-8 rounded-lg overflow-hidden" style={{ background: theme.bgAvatarCard }}>
+                  {p === 'trump' ? <TrumpAvatarCharacter size={32} /> : <AvatarCharacter size={32} />}
+                </div>
+                <span className="text-xs font-semibold">{PERSONA_META[p].name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div ref={mobileMsgRef} className="flex-1 relative z-10 overflow-y-auto px-4 pb-2 space-y-3.5"
           style={{ scrollbarWidth: 'none' }}>
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center gap-2"
-              style={{ opacity: 0.35, color: theme.textMuted }}>
-              <MessageSquare size={28} />
-              <p className="text-xs">Start chatting…</p>
+          {displayMessages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center gap-5">
+              <div>
+                <p className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>Choose your partner</p>
+                <p className="text-[11px]" style={{ color: theme.textMuted }}>Tap a character to select</p>
+              </div>
+              <div className="flex gap-3">
+                {(['alex', 'trump'] as Persona[]).map(p => (
+                  <PersonaCard key={p} persona={p} selected={selectedPersona === p} onSelect={() => setPersona(p)} />
+                ))}
+              </div>
             </div>
-          ) : messages.filter(m => m.role === 'user' || m.role === 'assistant').map(m => (
-            <ChatBubble key={m.id} role={m.role as 'user' | 'assistant'} content={m.content}
-              onReplay={m.role === 'assistant' ? () => handleReplay(m.content) : undefined} />
+          ) : displayMessages.map(m => (
+            <ChatBubble key={m.id} message={m}
+              speakerName={PERSONA_META[selectedPersona].name}
+              speakerAccent={personaAccent}
+              onReplay={m.role === 'assistant' ? () => handleReplay(extractText(m)) : undefined} />
           ))}
           {isListening && transcript && (
             <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .2s ease-out' }}>
@@ -925,14 +1194,12 @@ export const VoiceInterface = () => {
 
         {speechErrorBanner}
 
-        {/* Text input */}
         {showTextInput && (
           <div className="relative z-10 px-4 pb-2" style={{ animation: 'fadeUp .25s ease-out' }}>
             <TextInputBar onSend={handleTextSend} disabled={isLoading} />
           </div>
         )}
 
-        {/* Footer controls */}
         <footer className="relative z-10 flex-shrink-0 px-5 pb-8 pt-3 border-t"
           style={{ borderColor: theme.bgFooterBorder, background: theme.bgFooter, backdropFilter: 'blur(16px)' }}>
           <Controls />
@@ -941,17 +1208,13 @@ export const VoiceInterface = () => {
           </p>
         </footer>
 
-        {/* ── Mobile drawer ─────────────────────────────────────────────────── */}
         {showMobileDrawer && (
           <>
-            {/* Backdrop */}
             <div className="fixed inset-0 z-40"
               style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)' }}
               onClick={() => setShowMobileDrawer(false)} />
-            {/* Drawer panel */}
             <div className="fixed top-0 left-0 h-full w-[280px] z-50 flex flex-col"
               style={{ background: theme.bgSidebar, borderRight: `1px solid ${theme.bgSidebarBorder}`, animation: 'slideInLeft .25s ease-out' }}>
-              {/* Drawer header */}
               <div className="flex items-center justify-between px-4 pt-12 pb-4 border-b"
                 style={{ borderColor: theme.bgSidebarBorder }}>
                 <div className="flex items-center gap-2.5">
@@ -970,13 +1233,13 @@ export const VoiceInterface = () => {
                   <X size={16} />
                 </button>
               </div>
-
-              {/* Conversation list */}
               <div className="flex-1 overflow-hidden flex flex-col min-h-0 px-1 py-2">
-                <ConversationList onClose={() => setShowMobileDrawer(false)} />
+                <ConversationList
+                  onClose={() => setShowMobileDrawer(false)}
+                  onSelectConversation={handleSelectConversation}
+                  onNewChat={() => { handleNewChat(); setShowMobileDrawer(false); }}
+                />
               </div>
-
-              {/* User info */}
               <div className="px-3 py-3 border-t" style={{ borderColor: theme.bgSidebarBorder }}>
                 <UserMenu />
               </div>
@@ -985,5 +1248,18 @@ export const VoiceInterface = () => {
         )}
       </div>
     </>
+  );
+};
+
+// ─── WaveformBars (defined after VoiceInterface to avoid hoisting issues) ──────
+const WaveformBars = ({ active, color }: { active: boolean; color: string }) => {
+  const heights = [38, 62, 82, 52, 72, 88, 48, 68, 58, 78, 44, 65];
+  return (
+    <div className="flex items-center justify-center gap-[3px] h-8">
+      {heights.map((h, i) => (
+        <div key={i} className={`w-[3px] rounded-full ${color}`}
+          style={{ height: active ? `${h}%` : '18%', animation: active ? `waveBar .9s ease-in-out ${i * .07}s infinite alternate` : 'none', opacity: active ? 1 : 0.2, transition: 'height .3s,opacity .3s' }} />
+      ))}
+    </div>
   );
 };

@@ -1,6 +1,10 @@
 import { neon } from '@neondatabase/serverless';
 import type { Message, Conversation } from '@/types';
 
+/** Caps row reads to limit memory/response DoS from very large accounts. */
+const MAX_CONVERSATIONS = 2000;
+const MAX_MESSAGES = 10000;
+
 function getDb() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL environment variable is not set');
@@ -102,6 +106,7 @@ export async function listConversations(userId: string): Promise<Conversation[]>
     FROM conversations
     WHERE user_id = ${userId}
     ORDER BY updated_at DESC
+    LIMIT ${MAX_CONVERSATIONS}
   `;
   return rows.map(r => ({
     id: r.id as string,
@@ -141,6 +146,7 @@ export async function loadConversationMessages(convId: string, userId: string): 
     FROM messages
     WHERE conversation_id = ${convId} AND user_id = ${userId}
     ORDER BY timestamp ASC
+    LIMIT ${MAX_MESSAGES}
   `;
   return rows.map(r => ({
     id: r.id as string,
@@ -205,6 +211,7 @@ export async function loadMessages(userId: string): Promise<Message[]> {
     FROM messages
     WHERE user_id = ${userId} AND conversation_id IS NULL
     ORDER BY created_at ASC, timestamp ASC
+    LIMIT ${MAX_MESSAGES}
   `;
   return rows.map(r => ({
     id: r.id as string,

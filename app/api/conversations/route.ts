@@ -3,6 +3,8 @@ import { auth } from '@/auth';
 import { listConversations, createConversation, ensureSchema, migrateAllUuidUsers } from '@/lib/db';
 import type { Conversation } from '@/types';
 
+const MAX_TITLE_LEN = 200;
+
 type S = { user?: { id?: string } | null } | null;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -21,9 +23,13 @@ export async function GET() {
     console.error('[GET /api/conversations] ensureSchema (non-fatal):', String(e));
   }
 
-  // One-time migration: if userId is NOT a UUID (it's a stable provider ID),
-  // migrate any leftover UUID-format user_ids to this stable ID.
-  if (!migrationDone && !UUID_RE.test(userId)) {
+  // Dangerous in multi-tenant deployments: assigns ALL legacy UUID rows to one user.
+  // Only run when explicitly enabled (e.g. single-user maintenance window).
+  if (
+    process.env.LEGACY_UUID_MIGRATION_ENABLED === 'true' &&
+    !migrationDone &&
+    !UUID_RE.test(userId)
+  ) {
     migrationDone = true;
     try {
       await migrateAllUuidUsers(userId);
@@ -53,7 +59,21 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body: Conversation = await req.json();
+    const raw = await req.json();
+    if (
+      typeof raw?.id !== 'string' || !raw.id.trim() ||
+      typeof raw?.title !== 'string' ||
+      typeof raw?.created_at !== 'number' ||
+      typeof raw?.updated_at !== 'number'
+    ) {
+      return NextResponse.json({ error: 'Invalid conversation payload' }, { status: 400 });
+    }
+    const body: Conversation = {
+      id: raw.id.trim().slice(0, 100),
+      title: raw.title.slice(0, MAX_TITLE_LEN),
+      created_at: raw.created_at,
+      updated_at: raw.updated_at,
+    };
     await createConversation(userId, body);
     return NextResponse.json({ ok: true });
   } catch (e) {

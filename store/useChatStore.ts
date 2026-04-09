@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { ChatState, Conversation, Message, UserSettings } from '@/types';
+import { ChatState, Conversation, Message, Persona, UserSettings } from '@/types';
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   conversations: [],
   currentConversationId: null,
   isLoading: false,
+  selectedPersona: 'alex' as Persona,
   settings: {
     language: 'en',
     proficiency: 'intermediate',
@@ -51,4 +52,6 @@ export const useChatStore = create<ChatState>((set) => ({
         .map(c => c.id === id ? { ...c, updated_at: Date.now() } : c)
         .sort((a, b) => b.updated_at - a.updated_at),
     })),
+
+  setPersona: (persona: Persona) => set({ selectedPersona: persona }),
 }));
