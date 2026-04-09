@@ -90,8 +90,14 @@ export const useTextToSpeech = () => {
           throw new Error(`TTS API ${res.status}`);
         }
 
-        const blob = await res.blob();
+        const arrayBuffer = await res.arrayBuffer();
         if (controller.signal.aborted) return;
+
+        const contentType = res.headers.get('content-type') ?? 'audio/mpeg';
+        console.log('[tts-client] received audio, size:', arrayBuffer.byteLength,
+          'content-type:', contentType);
+
+        if (arrayBuffer.byteLength === 0) throw new Error('Empty audio response');
 
         // Revoke previous blob URL if any
         if (audioElementRef.current) {
@@ -100,8 +106,10 @@ export const useTextToSpeech = () => {
           if (prevSrc?.startsWith('blob:')) URL.revokeObjectURL(prevSrc);
         }
 
-        const url = URL.createObjectURL(blob);
+        const audioBlob = new Blob([arrayBuffer], { type: contentType });
+        const url = URL.createObjectURL(audioBlob);
         const audio = new Audio(url);
+        audio.preload = 'auto';
         audioElementRef.current = audio;
 
         audio.onended = () => {
@@ -110,16 +118,25 @@ export const useTextToSpeech = () => {
           audioElementRef.current = null;
           abortControllerRef.current = null;
         };
-        audio.onerror = () => {
+        audio.onerror = (e) => {
+          console.warn('[tts-client] Audio element error:', (e as ErrorEvent)?.message ?? audio.error?.message ?? 'unknown');
           setIsSpeaking(false);
           URL.revokeObjectURL(url);
           audioElementRef.current = null;
           abortControllerRef.current = null;
-          // Fallback to browser TTS on playback error
           doBrowserSpeak(text);
         };
 
-        await audio.play();
+        try {
+          await audio.play();
+        } catch (playErr) {
+          console.warn('[tts-client] play() rejected:', (playErr as Error).message);
+          setIsSpeaking(false);
+          URL.revokeObjectURL(url);
+          audioElementRef.current = null;
+          abortControllerRef.current = null;
+          doBrowserSpeak(text);
+        }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return;
         if (err instanceof TypeError) {

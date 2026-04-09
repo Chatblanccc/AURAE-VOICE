@@ -5,12 +5,13 @@ const isDev = process.env.NODE_ENV === "development";
 /** CSP tuned for Next.js: inline scripts/styles; tighten further with nonces if needed. */
 const contentSecurityPolicy = [
   "default-src 'self'",
-  // Next/React hydration uses inline scripts in dev; production may still need 'unsafe-inline' for some chunks
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "connect-src 'self' https: wss:",
+  "media-src 'self' blob:",
+  "worker-src 'self' blob:",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

@@ -51,17 +51,14 @@ export async function POST(req: NextRequest) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        model: 's2-pro',
       },
       body: JSON.stringify({
         text: text.replace(/[*#_`]/g, '').trim(),
         reference_id: finalId,
+        model: 'speech-1.6',
         format: 'mp3',
         mp3_bitrate: 128,
         latency: 'balanced',
-        temperature: 0.7,
-        top_p: 0.7,
-        prosody: { speed: 1.0, volume: 0, normalize_loudness: true },
       }),
     });
   } catch (e) {
@@ -79,12 +76,20 @@ export async function POST(req: NextRequest) {
     return new Response(msg, { status: fishRes.status });
   }
 
-  // Stream the MP3 audio directly back to the client
-  return new Response(fishRes.body, {
+  // Buffer the complete audio — streaming through Next.js can corrupt binary data
+  const audioBuffer = await fishRes.arrayBuffer();
+  const fishContentType = fishRes.headers.get('content-type') ?? 'audio/mpeg';
+  console.log('[tts] Fish Audio OK, content-type:', fishContentType, 'size:', audioBuffer.byteLength);
+
+  if (audioBuffer.byteLength === 0) {
+    return new Response('Empty audio response from Fish Audio', { status: 502 });
+  }
+
+  return new Response(audioBuffer, {
     headers: {
-      'Content-Type': 'audio/mpeg',
+      'Content-Type': fishContentType,
+      'Content-Length': String(audioBuffer.byteLength),
       'Cache-Control': 'no-cache',
-      'Transfer-Encoding': 'chunked',
     },
   });
 }
