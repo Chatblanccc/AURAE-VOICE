@@ -13,6 +13,8 @@ export interface AvatarSceneProps {
   isSpeaking?: boolean;
   isLoading?: boolean;
   persona?: 'alex' | 'trump';
+  /** true = all APIs healthy (green Ready), false/undefined = unhealthy (gray False) */
+  apiReady?: boolean;
 }
 
 const PERSONA_CONFIG = {
@@ -44,6 +46,7 @@ export const AvatarScene: React.FC<AvatarSceneProps> = ({
   isSpeaking = false,
   isLoading = false,
   persona = 'alex',
+  apiReady,
 }) => {
   const { theme } = useThemeStore();
   const isActive = isListening || isSpeaking || isLoading;
@@ -77,16 +80,29 @@ export const AvatarScene: React.FC<AvatarSceneProps> = ({
     ? (isAlex ? 'sceneActiveGlowLight 1.4s ease-in-out infinite' : 'sceneTrumpActiveGlowLight 1.4s ease-in-out infinite')
     : (isAlex ? 'sceneIdleGlowLight 4s ease-in-out infinite' : 'sceneTrumpIdleGlowLight 4s ease-in-out infinite');
 
+  const API_GREEN = '#22c55e';
+
   const statusLabel = isSpeaking
     ? 'Speaking'
     : isLoading
     ? 'Thinking…'
     : isListening
     ? 'Listening'
-    : 'Ready';
+    : apiReady
+    ? 'Ready'
+    : 'False';
 
-  const statusTextColor = isActive ? accentColor : theme.textMuted;
-  const statusDotBg = isActive ? accentColor : theme.statusDotIdle;
+  const statusTextColor = isActive
+    ? accentColor
+    : apiReady
+    ? API_GREEN
+    : theme.textMuted;
+
+  const statusDotBg = isActive
+    ? accentColor
+    : apiReady
+    ? API_GREEN
+    : theme.statusDotIdle;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
@@ -182,7 +198,11 @@ export const AvatarScene: React.FC<AvatarSceneProps> = ({
               height: 6,
               borderRadius: '50%',
               background: statusDotBg,
-              boxShadow: isActive ? `0 0 8px ${accentColor}` : 'none',
+              boxShadow: isActive
+                ? `0 0 8px ${accentColor}`
+                : apiReady
+                ? `0 0 6px ${API_GREEN}99`
+                : 'none',
               transition: 'background .4s, box-shadow .4s',
               display: 'inline-block',
             }} />

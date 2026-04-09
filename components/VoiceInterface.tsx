@@ -573,6 +573,23 @@ export const VoiceInterface = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [brandIconHovered, setBrandIconHovered] = useState(false);
 
+  // ── API health status ─────────────────────────────────────────────────────
+  const [apiReady, setApiReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' });
+        if (!cancelled) setApiReady(res.ok && (await res.json()).ok === true);
+      } catch {
+        if (!cancelled) setApiReady(false);
+      }
+    };
+    check();
+    const id = setInterval(check, 60_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
   // Refs for passing dynamic values into the transport body function
   const currentConvIdRef = useRef<string | null>(currentConversationId);
   const currentConvTitleRef = useRef<string>('');
@@ -754,9 +771,12 @@ export const VoiceInterface = () => {
 
   // ── Status derived values ─────────────────────────────────────────────────
   const isActive = isListening || isSpeaking || isLoading;
-  const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : 'Ready';
+  const API_GREEN = '#22c55e';
+  const idleLabel = apiReady === true ? 'Ready' : 'False';
+  const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : idleLabel;
   const personaAccent = PERSONA_META[selectedPersona].accent;
-  const statusColor = isListening ? personaAccent : isSpeaking ? personaAccent : isLoading ? '#94a3b8' : theme.textMuted;
+  const idleColor = apiReady === true ? API_GREEN : theme.textMuted;
+  const statusColor = isListening ? personaAccent : isSpeaking ? personaAccent : isLoading ? '#94a3b8' : idleColor;
 
   // ── Speech error banner ───────────────────────────────────────────────────
   const speechErrorBanner = speechError === 'network' ? (
@@ -915,10 +935,10 @@ export const VoiceInterface = () => {
               <div className="flex items-center gap-2 px-3.5 py-1 rounded-full border mb-1"
                 style={{ background: theme.bgStatusPill, borderColor: `${personaAccent}20` }}>
                 <span className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                  style={{ background: statusColor, boxShadow: isActive ? `0 0 6px ${statusColor}` : 'none' }} />
+                  style={{ background: statusColor, boxShadow: isActive ? `0 0 6px ${statusColor}` : apiReady ? `0 0 5px ${API_GREEN}99` : 'none' }} />
                 <span className="text-[11px] font-medium tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
               </div>
-              <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={140} />
+              <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} apiReady={apiReady === true} size={140} />
               <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
             </div>
           ) : (
