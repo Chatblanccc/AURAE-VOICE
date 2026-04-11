@@ -21,6 +21,8 @@ interface AuraeLogoIconProps {
  *
  * Heights (100 px viewBox): 22 · 44 · 66 · 80 · 66 · 44 · 22
  * All bars are vertically centred at y = 50.
+ *
+ * Keep in sync with `app/icon.svg` (favicon / browser tab).
  */
 export function AuraeLogoIcon({
   size = 32,

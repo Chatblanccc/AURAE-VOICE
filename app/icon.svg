@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <title>AURAE VOICE</title>
+  <!-- Same geometry as components/AuraeLogo.tsx  seven rounded bars (voice waveform mark) -->
+  <rect x="6" y="39" width="9" height="22" rx="4.5" fill="#C96442"/>
+  <rect x="19" y="28" width="9" height="44" rx="4.5" fill="#C96442"/>
+  <rect x="32" y="17" width="9" height="66" rx="4.5" fill="#C96442"/>
+  <rect x="45" y="10" width="9" height="80" rx="4.5" fill="#C96442"/>
+  <rect x="58" y="17" width="9" height="66" rx="4.5" fill="#C96442"/>
+  <rect x="71" y="28" width="9" height="44" rx="4.5" fill="#C96442"/>
+  <rect x="84" y="39" width="9" height="22" rx="4.5" fill="#C96442"/>
+</svg>

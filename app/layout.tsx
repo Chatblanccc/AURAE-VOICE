@@ -6,10 +6,7 @@ import { SessionProvider } from "next-auth/react";
 export const metadata: Metadata = {
   title: "AURAE VOICE — AI English Tutor",
   description: "Your personal AI-powered English speaking coach, powered by AURAE VOICE",
-  icons: {
-    icon: [{ url: "/aurae-voice-logo-v2.png", type: "image/png" }],
-    apple: [{ url: "/aurae-voice-logo-v2.png", sizes: "180x180", type: "image/png" }],
-  },
+  // Tab / bookmark icon: `app/icon.svg` (brand waveform mark, same as AuraeLogoIcon)
 };
 
 export default function RootLayout({
