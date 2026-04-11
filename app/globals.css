@@ -7,9 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  /* DM Sans was next/font/google — build fails without network to fonts.googleapis.com; use system stack */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-heading: ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -135,4 +136,32 @@ html[data-theme="light"] body {
 }
 html[data-theme="dark"] body {
   background-color: #0C0A08;
+}
+
+/* ─── Landing page design tokens (DESIGN.md parchment palette) ─── */
+:root {
+  --lp-parchment: #f5f4ed;
+  --lp-ivory: #faf9f5;
+  --lp-near-black: #141413;
+  --lp-dark-surface: #30302e;
+  --lp-terracotta: #c96442;
+  --lp-coral: #d97757;
+  --lp-olive-gray: #5e5d59;
+  --lp-stone-gray: #87867f;
+  --lp-charcoal-warm: #4d4c48;
+  --lp-warm-silver: #b0aea5;
+  --lp-border-cream: #f0eee6;
+  --lp-border-warm: #e8e6dc;
+  --lp-warm-sand: #e8e6dc;
+  --lp-ring-warm: #d1cfc5;
+}
+
+/* ─── Landing page typography ─── */
+.lp-serif {
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+/* ─── Landing page smooth scroll ─── */
+html:has(.landing-page) {
+  scroll-behavior: smooth;
 }

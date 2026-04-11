@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     typeof raw?.id !== 'string' || !raw.id.trim() ||
     typeof raw?.role !== 'string' || !VALID_ROLES.has(raw.role) ||
     typeof raw?.content !== 'string' || !raw.content.trim() ||
-    typeof raw?.timestamp !== 'number'
+    typeof raw?.timestamp !== 'number' || !Number.isFinite(raw.timestamp)
   ) {
     return NextResponse.json({ error: 'Invalid message' }, { status: 400 });
   }

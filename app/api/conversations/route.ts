@@ -64,13 +64,16 @@ export async function POST(req: NextRequest) {
       typeof raw?.id !== 'string' || !raw.id.trim() ||
       typeof raw?.title !== 'string' ||
       typeof raw?.created_at !== 'number' ||
-      typeof raw?.updated_at !== 'number'
+      typeof raw?.updated_at !== 'number' ||
+      !Number.isFinite(raw.created_at) ||
+      !Number.isFinite(raw.updated_at)
     ) {
       return NextResponse.json({ error: 'Invalid conversation payload' }, { status: 400 });
     }
     const body: Conversation = {
       id: raw.id.trim().slice(0, 100),
       title: raw.title.slice(0, MAX_TITLE_LEN),
+      persona: raw.persona === 'trump' ? 'trump' : 'alex',
       created_at: raw.created_at,
       updated_at: raw.updated_at,
     };

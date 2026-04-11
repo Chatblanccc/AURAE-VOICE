@@ -93,7 +93,7 @@ export const ChatInterface = () => {
             <Bot size={24} />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-tight">SpeakStar</h1>
+            <h1 className="font-bold text-lg leading-tight">AURAE VOICE</h1>
             <p className="text-xs text-muted-foreground capitalize">{settings.proficiency} • {settings.topic}</p>
           </div>
         </div>

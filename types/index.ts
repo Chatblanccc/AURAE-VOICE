@@ -1,5 +1,17 @@
 export type Role = 'user' | 'assistant' | 'system';
 
+export type UserPlan = 'free' | 'plus' | 'pro';
+
+export interface UsageInfo {
+  plan: UserPlan;
+  used: number;
+  limit: number;
+  resetAt: number | null;
+  window: 'week' | 'month' | 'unlimited';
+  /** Card subscription vs legacy prepaid rows (no Stripe subscription id). */
+  billing?: 'subscription' | 'prepaid' | 'free';
+}
+
 export type Persona = 'alex' | 'trump';
 
 export interface Message {
@@ -12,6 +24,7 @@ export interface Message {
 export interface Conversation {
   id: string;
   title: string;
+  persona?: Persona;
   created_at: number;
   updated_at: number;
 }

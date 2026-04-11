@@ -1,18 +1,11 @@
 import type { Metadata } from "next";
-import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SessionProvider } from "next-auth/react";
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-dm-sans",
-});
-
 export const metadata: Metadata = {
-  title: "SpeakStar — AI English Tutor",
-  description: "Your personal AI-powered English speaking coach",
+  title: "AURAE VOICE — AI English Tutor",
+  description: "Your personal AI-powered English speaking coach, powered by AURAE VOICE",
 };
 
 export default function RootLayout({
@@ -21,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${dmSans.variable} h-full antialiased`}>
-      <body className={`${dmSans.className} min-h-full flex flex-col`}>
+    <html lang="en" className="h-full antialiased">
+      <body className="min-h-full flex flex-col font-sans">
         <SessionProvider>
           <ThemeProvider>{children}</ThemeProvider>
         </SessionProvider>

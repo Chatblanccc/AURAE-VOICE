@@ -6,7 +6,12 @@ import { z } from 'zod';
 import {
   ensureSchema, createConversation,
   saveMessageToConversation, touchConversation,
+  getUserPlan, recordUsage, getUsageCount, getMonthlyUsageCount,
 } from '@/lib/db';
+
+const FREE_LIMIT = 100;
+const FREE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // rolling 7-day window
+const PLUS_LIMIT = 1000;
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -80,6 +85,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ── Usage / rate-limit gate ───────────────────────────────────────────────
+  try {
+    await ensureSchema();
+    const plan = await getUserPlan(userId);
+
+    if (plan === 'free') {
+      const windowStart = Date.now() - FREE_WINDOW_MS;
+      const used = await getUsageCount(userId, windowStart);
+      if (used >= FREE_LIMIT) {
+        const resetAt = windowStart + FREE_WINDOW_MS;
+        return NextResponse.json(
+          { error: 'limit_reached', plan: 'free', limit: FREE_LIMIT, resetAt },
+          { status: 429 },
+        );
+      }
+    } else if (plan === 'plus') {
+      const used = await getMonthlyUsageCount(userId);
+      if (used >= PLUS_LIMIT) {
+        const now = new Date();
+        const resetAt = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1);
+        return NextResponse.json(
+          { error: 'limit_reached', plan: 'plus', limit: PLUS_LIMIT, resetAt },
+          { status: 429 },
+        );
+      }
+    }
+    // pro: no limit
+  } catch (e) {
+    console.error('[chat] rate-limit check failed:', String(e));
+    // Fail closed: if we cannot verify plan/usage, do not allow unbounded provider usage.
+    return NextResponse.json(
+      { error: 'Service temporarily unavailable' },
+      { status: 503 },
+    );
+  }
+
   const body = await req.json();
   const {
     messages: rawMessages,
@@ -124,6 +165,7 @@ export async function POST(req: NextRequest) {
       await createConversation(userId, {
         id: conversationId,
         title: safeTitle,
+        persona,
         created_at: now,
         updated_at: now,
       });
@@ -244,6 +286,10 @@ Current topic: ${topic}. Make it about yourself somehow.`;
     messages: await convertToModelMessages(messages, activeTools ? { tools: activeTools } : {}),
     ...(activeTools ? { tools: activeTools, stopWhen: stepCountIs(6) } : {}),
     onFinish: async ({ text }) => {
+      // Record one usage unit per completed round
+      try { await recordUsage(userId); } catch (e) {
+        console.error('[chat] recordUsage:', String(e));
+      }
       if (userId && conversationId && text.trim()) {
         try {
           await saveMessageToConversation(conversationId, userId, {

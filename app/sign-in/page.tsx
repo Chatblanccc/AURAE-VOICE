@@ -1,17 +1,20 @@
 'use client';
 
 import { signIn } from 'next-auth/react';
-import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useThemeStore } from '@/store/useThemeStore';
+import { AuraeLogoIcon } from '@/components/AuraeLogo';
 
 const WECHAT_ENABLED = !!(
   process.env.NEXT_PUBLIC_WECHAT_ENABLED === 'true'
 );
 
-export default function SignInPage() {
+function SignInContent() {
   const { theme, mode } = useThemeStore();
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/chat';
 
   // Keep data-theme in sync on this page too
   useEffect(() => {
@@ -20,13 +23,13 @@ export default function SignInPage() {
 
   const handleGoogle = async () => {
     setLoading(true);
-    await signIn('google', { callbackUrl: '/' });
+    await signIn('google', { callbackUrl });
   };
 
   const handleWeChat = async () => {
     if (!WECHAT_ENABLED) return;
     setLoading(true);
-    await signIn('wechat', { callbackUrl: '/' });
+    await signIn('wechat', { callbackUrl });
   };
 
   return (
@@ -60,18 +63,16 @@ export default function SignInPage() {
       >
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg,#D96B0B,#FE8113)' }}
-          >
-            <Sparkles size={26} className="text-white" />
-          </div>
+          <AuraeLogoIcon
+            size={56}
+            color="#C96442"
+          />
           <div className="text-center">
             <h1
               className="text-2xl font-bold tracking-tight"
               style={{ color: theme.textPrimary }}
             >
-              SpeakStar
+              AURAE VOICE
             </h1>
             <p
               className="text-xs font-medium tracking-widest uppercase mt-0.5"
@@ -148,9 +149,9 @@ export default function SignInPage() {
             <span
               className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-md"
               style={{
-                background: 'rgba(254,129,19,.15)',
+                background: 'rgba(201,100,66,.15)',
                 color: theme.accentText,
-                border: `1px solid rgba(254,129,19,.20)`,
+                border: `1px solid rgba(201,100,66,.20)`,
               }}
             >
               Coming Soon
@@ -165,5 +166,13 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInContent />
+    </Suspense>
   );
 }

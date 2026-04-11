@@ -43,3 +43,9 @@ next-env.d.ts
 
 .vercel
 .env*.local
+
+# Local-only notes (do not push)
+PROJECT_SUMMARY_LOCAL.md
+
+# Editor (optional local settings)
+.cursor/

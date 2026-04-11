@@ -1,3 +1,4 @@
+// ─── Design tokens aligned with DESIGN.md (Claude / Anthropic parchment palette) ───
 export type ThemeMode = 'dark' | 'light';
 
 export interface Theme {
@@ -20,7 +21,7 @@ export interface Theme {
   textMuted: string;
   textDim: string;
   textDimmer: string;
-  // Accent (orange — same in both themes)
+  // Accent — Terracotta (#c96442) replacing orange
   accent: string;
   accentDark: string;
   accentLight: string;
@@ -39,84 +40,100 @@ export interface Theme {
   // Misc
   scrollbarColor: string;
   separatorColor: string;
-  // Ambient glow opacity multiplier (as CSS rgba values)
+  // Ambient glow (rgba values)
   glowStrong: string;
   glowMid: string;
   glowSubtle: string;
 }
 
+// ─── Dark theme — Near Black (#141413) canvas ────────────────────────────────
 export const darkTheme: Theme = {
   mode: 'dark',
-  bgMain: '#0C0A08',
-  bgSidebar: 'rgba(54,54,54,.18)',
-  bgSidebarBorder: 'rgba(254,129,19,.08)',
-  bgCard: 'rgba(54,54,54,.30)',
-  bgCardBorder: 'rgba(255,255,255,.07)',
-  bgInput: 'rgba(54,54,54,.40)',
-  bgInputBorder: 'rgba(254,129,19,.12)',
-  bgAvatarCard: 'rgba(20,14,8,.72)',
-  bgFooter: 'rgba(12,10,8,.92)',
-  bgFooterBorder: 'rgba(254,129,19,.08)',
-  bgStatusPill: 'rgba(54,54,54,.25)',
-  textPrimary: 'rgba(255,255,255,.92)',
-  textSecondary: 'rgba(255,255,255,.80)',
-  textMuted: 'rgba(255,255,255,.30)',
-  textDim: 'rgba(255,255,255,.20)',
-  textDimmer: 'rgba(255,255,255,.14)',
-  accent: '#FE8113',
-  accentDark: '#D96B0B',
-  accentLight: '#FF9E45',
-  accentPale: 'rgba(254,160,80,.60)',
-  accentText: '#FFA855',
+  // Surfaces — warm charcoal family
+  bgMain:           '#141413',
+  bgSidebar:        'rgba(48,48,46,.88)',
+  bgSidebarBorder:  'rgba(201,100,66,.12)',
+  bgCard:           'rgba(48,48,46,.55)',
+  bgCardBorder:     'rgba(255,255,255,.06)',
+  bgInput:          'rgba(61,61,58,.70)',
+  bgInputBorder:    'rgba(201,100,66,.18)',
+  bgAvatarCard:     'rgba(20,20,19,.75)',
+  bgFooter:         'rgba(20,20,19,.96)',
+  bgFooterBorder:   'rgba(201,100,66,.10)',
+  bgStatusPill:     'rgba(48,48,46,.55)',
+  // Text — Ivory / Warm Silver / Stone Gray
+  textPrimary:   'rgba(250,249,245,.92)',   // ~Ivory
+  textSecondary: 'rgba(176,174,165,.90)',   // Warm Silver
+  textMuted:     'rgba(135,134,127,.80)',   // Stone Gray
+  textDim:       'rgba(135,134,127,.50)',
+  textDimmer:    'rgba(135,134,127,.30)',
+  // Terracotta accent (#c96442)
+  accent:      '#c96442',
+  accentDark:  '#b8573a',
+  accentLight: '#d97757',                  // Coral
+  accentPale:  'rgba(217,119,87,.65)',
+  accentText:  '#d97757',
+  // Status
   statusDotActive: '#22c55e',
-  statusDotIdle: '#2A2A2A',
-  bubbleUserBg: 'rgba(254,129,19,.10)',
-  bubbleUserBorder: 'rgba(254,129,19,.28)',
-  bubbleUserText: 'rgba(255,255,255,.85)',
-  bubbleAIBg: 'rgba(255,255,255,.05)',
-  bubbleAIBorder: 'rgba(255,255,255,.07)',
-  bubbleAIText: 'rgba(255,255,255,.80)',
-  scrollbarColor: 'rgba(254,129,19,.10)',
-  separatorColor: 'rgba(255,255,255,.04)',
-  glowStrong: 'rgba(254,129,19,.10)',
-  glowMid: 'rgba(254,129,19,.08)',
-  glowSubtle: 'rgba(217,107,11,.08)',
+  statusDotIdle:   '#30302e',
+  // Chat bubbles
+  bubbleUserBg:     'rgba(201,100,66,.12)',
+  bubbleUserBorder: 'rgba(201,100,66,.32)',
+  bubbleUserText:   'rgba(250,249,245,.88)',
+  bubbleAIBg:       'rgba(255,255,255,.05)',
+  bubbleAIBorder:   'rgba(255,255,255,.07)',
+  bubbleAIText:     'rgba(176,174,165,.85)',
+  // Misc
+  scrollbarColor:  'rgba(201,100,66,.12)',
+  separatorColor:  'rgba(48,48,46,.90)',
+  // Glow
+  glowStrong: 'rgba(201,100,66,.09)',
+  glowMid:    'rgba(201,100,66,.06)',
+  glowSubtle: 'rgba(184,87,58,.06)',
 };
 
+// ─── Light theme — Parchment (#f5f4ed) canvas ────────────────────────────────
 export const lightTheme: Theme = {
   mode: 'light',
-  bgMain: '#FBF7F2',
-  bgSidebar: 'rgba(255,252,248,.96)',
-  bgSidebarBorder: 'rgba(254,129,19,.18)',
-  bgCard: 'rgba(255,255,255,.80)',
-  bgCardBorder: 'rgba(0,0,0,.07)',
-  bgInput: 'rgba(255,255,255,.90)',
-  bgInputBorder: 'rgba(254,129,19,.22)',
-  bgAvatarCard: 'rgba(255,252,248,.90)',
-  bgFooter: 'rgba(251,247,242,.97)',
-  bgFooterBorder: 'rgba(254,129,19,.14)',
-  bgStatusPill: 'rgba(255,255,255,.75)',
-  textPrimary: 'rgba(28,16,6,.90)',
-  textSecondary: 'rgba(28,16,6,.75)',
-  textMuted: 'rgba(28,16,6,.45)',
-  textDim: 'rgba(28,16,6,.30)',
-  textDimmer: 'rgba(28,16,6,.18)',
-  accent: '#FE8113',
-  accentDark: '#D96B0B',
-  accentLight: '#FF9E45',
-  accentPale: 'rgba(180,80,0,.65)',
-  accentText: '#B85500',
+  // Surfaces — parchment / ivory family
+  bgMain:           '#f5f4ed',             // Parchment
+  bgSidebar:        'rgba(250,249,245,.97)', // ~Ivory
+  bgSidebarBorder:  'rgba(232,230,220,.80)', // Border Warm
+  bgCard:           'rgba(250,249,245,.88)',
+  bgCardBorder:     'rgba(240,238,230,.95)', // Border Cream
+  bgInput:          'rgba(250,249,245,.95)',
+  bgInputBorder:    'rgba(201,100,66,.22)',
+  bgAvatarCard:     'rgba(250,249,245,.93)',
+  bgFooter:         'rgba(245,244,237,.98)', // Parchment
+  bgFooterBorder:   'rgba(232,230,220,.85)', // Border Warm
+  bgStatusPill:     'rgba(250,249,245,.92)',
+  // Text — Near Black / Olive Gray / Stone Gray
+  textPrimary:   '#141413',                // Anthropic Near Black
+  textSecondary: '#5e5d59',                // Olive Gray
+  textMuted:     '#87867f',                // Stone Gray
+  textDim:       'rgba(135,134,127,.65)',
+  textDimmer:    'rgba(135,134,127,.45)',
+  // Terracotta accent (#c96442)
+  accent:      '#c96442',
+  accentDark:  '#b8573a',
+  accentLight: '#d97757',
+  accentPale:  'rgba(180,87,58,.65)',
+  accentText:  '#c96442',
+  // Status
   statusDotActive: '#16a34a',
-  statusDotIdle: '#D8D0C8',
-  bubbleUserBg: 'rgba(254,129,19,.10)',
-  bubbleUserBorder: 'rgba(254,129,19,.30)',
-  bubbleUserText: 'rgba(28,16,6,.85)',
-  bubbleAIBg: 'rgba(0,0,0,.04)',
-  bubbleAIBorder: 'rgba(0,0,0,.08)',
-  bubbleAIText: 'rgba(28,16,6,.78)',
-  scrollbarColor: 'rgba(254,129,19,.20)',
-  separatorColor: 'rgba(0,0,0,.05)',
-  glowStrong: 'rgba(254,129,19,.07)',
-  glowMid: 'rgba(254,129,19,.05)',
-  glowSubtle: 'rgba(217,107,11,.04)',
+  statusDotIdle:   '#e8e6dc',              // Border Warm
+  // Chat bubbles
+  bubbleUserBg:     'rgba(201,100,66,.09)',
+  bubbleUserBorder: 'rgba(201,100,66,.28)',
+  bubbleUserText:   '#141413',
+  bubbleAIBg:       'rgba(0,0,0,.03)',
+  bubbleAIBorder:   'rgba(0,0,0,.07)',
+  bubbleAIText:     '#5e5d59',             // Olive Gray
+  // Misc
+  scrollbarColor:  'rgba(201,100,66,.18)',
+  separatorColor:  'rgba(232,230,220,.70)',
+  // Glow
+  glowStrong: 'rgba(201,100,66,.07)',
+  glowMid:    'rgba(201,100,66,.05)',
+  glowSubtle: 'rgba(184,87,58,.04)',
 };

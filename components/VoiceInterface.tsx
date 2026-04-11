@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useChatStore } from '@/store/useChatStore';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
 import { useTextToSpeech } from '@/hooks/useTextToSpeech';
@@ -9,13 +10,15 @@ import { useSession, signOut } from 'next-auth/react';
 import { AvatarScene } from '@/components/AvatarScene';
 import { AvatarCharacter } from '@/components/AvatarCharacter';
 import { TrumpAvatarCharacter } from '@/components/TrumpAvatarCharacter';
+import { AuraeLogo } from '@/components/AuraeLogo';
 import {
-  Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare, Sparkles,
+  Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare,
   Send, Keyboard, Sun, Moon, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
   BookOpen, CheckCircle, Zap, Users,
 } from 'lucide-react';
 
-import type { Conversation, Persona } from '@/types';
+import type { Conversation, Persona, UsageInfo } from '@/types';
+import { PAID_PLANS_LIVE } from '@/lib/product-flags';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage, generateId } from 'ai';
 
@@ -36,11 +39,11 @@ const STYLES = `
 
   @keyframes sceneHaloPulse { 0%,100%{opacity:0.5;transform:translate(-50%,-50%) scale(1)} 50%{opacity:0.85;transform:translate(-50%,-50%) scale(1.04)} }
   @keyframes sceneBadgeFade { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes sceneIdleGlow { 0%,100%{box-shadow:0 0 28px rgba(254,129,19,.15),0 0 60px rgba(254,129,19,.06)} 50%{box-shadow:0 0 36px rgba(254,129,19,.22),0 0 80px rgba(254,129,19,.10)} }
-  @keyframes sceneActiveGlow { 0%,100%{box-shadow:0 0 48px rgba(254,129,19,.50),0 0 100px rgba(254,129,19,.20),inset 0 1px 0 rgba(255,255,255,.06)} 50%{box-shadow:0 0 70px rgba(254,129,19,.70),0 0 140px rgba(254,129,19,.30),inset 0 1px 0 rgba(255,255,255,.08)} }
+  @keyframes sceneIdleGlow { 0%,100%{box-shadow:0 0 28px rgba(201,100,66,.18),0 0 60px rgba(201,100,66,.07)} 50%{box-shadow:0 0 36px rgba(201,100,66,.26),0 0 80px rgba(201,100,66,.12)} }
+  @keyframes sceneActiveGlow { 0%,100%{box-shadow:0 0 48px rgba(201,100,66,.52),0 0 100px rgba(201,100,66,.22),inset 0 1px 0 rgba(255,255,255,.06)} 50%{box-shadow:0 0 70px rgba(201,100,66,.72),0 0 140px rgba(201,100,66,.32),inset 0 1px 0 rgba(255,255,255,.08)} }
   @keyframes sceneThinkGlow { 0%,100%{box-shadow:0 0 40px rgba(148,163,184,.25),0 0 80px rgba(148,163,184,.10)} 50%{box-shadow:0 0 58px rgba(148,163,184,.38),0 0 110px rgba(148,163,184,.16)} }
-  @keyframes sceneIdleGlowLight { 0%,100%{box-shadow:0 4px 24px rgba(0,0,0,.08),0 0 0 1px rgba(254,129,19,.12)} 50%{box-shadow:0 6px 32px rgba(0,0,0,.11),0 0 0 1px rgba(254,129,19,.18)} }
-  @keyframes sceneActiveGlowLight { 0%,100%{box-shadow:0 4px 28px rgba(254,129,19,.22),0 0 0 2px rgba(254,129,19,.30)} 50%{box-shadow:0 6px 40px rgba(254,129,19,.30),0 0 0 2px rgba(254,129,19,.40)} }
+  @keyframes sceneIdleGlowLight { 0%,100%{box-shadow:0 4px 24px rgba(0,0,0,.07),0 0 0 1px rgba(201,100,66,.14)} 50%{box-shadow:0 6px 32px rgba(0,0,0,.10),0 0 0 1px rgba(201,100,66,.20)} }
+  @keyframes sceneActiveGlowLight { 0%,100%{box-shadow:0 4px 28px rgba(201,100,66,.24),0 0 0 2px rgba(201,100,66,.32)} 50%{box-shadow:0 6px 40px rgba(201,100,66,.32),0 0 0 2px rgba(201,100,66,.42)} }
   @keyframes sceneThinkGlowLight { 0%,100%{box-shadow:0 4px 24px rgba(100,130,180,.18),0 0 0 1px rgba(100,130,180,.20)} 50%{box-shadow:0 6px 32px rgba(100,130,180,.24),0 0 0 1px rgba(100,130,180,.28)} }
 
   @keyframes sceneTrumpIdleGlow { 0%,100%{box-shadow:0 0 28px rgba(204,26,26,.15),0 0 60px rgba(204,26,26,.06)} 50%{box-shadow:0 0 36px rgba(204,26,26,.22),0 0 80px rgba(204,26,26,.10)} }
@@ -204,10 +207,10 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
         {/* Main text bubble */}
         <div className="px-4 py-3 rounded-2xl text-sm leading-relaxed" style={{
           background: u
-            ? (theme.mode === 'dark' ? `${speakerAccent ?? '#FE8113'}1C` : `${speakerAccent ?? '#FE8113'}1A`)
+            ? (theme.mode === 'dark' ? `${speakerAccent ?? '#c96442'}1C` : `${speakerAccent ?? '#c96442'}1A`)
             : (theme.mode === 'dark' ? 'rgba(255,255,255,.055)' : 'rgba(0,0,0,.04)'),
           border: u
-            ? `1px solid ${speakerAccent ?? '#FE8113'}38`
+            ? `1px solid ${speakerAccent ?? '#c96442'}38`
             : `1px solid ${theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'}`,
           backdropFilter: 'blur(10px)',
         }}>
@@ -220,10 +223,10 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
                 <p className="mt-2 pt-2 text-xs leading-relaxed border-t"
                   style={{
                     color: u
-                      ? (theme.mode === 'dark' ? 'rgba(255,175,100,.42)' : 'rgba(160,80,0,.45)')
+                      ? (theme.mode === 'dark' ? 'rgba(217,119,87,.45)' : 'rgba(184,87,58,.50)')
                       : (theme.mode === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(28,16,6,.35)'),
                     borderColor: u
-                      ? 'rgba(254,129,19,.14)'
+                      ? 'rgba(201,100,66,.16)'
                       : (theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'),
                     whiteSpace: 'pre-wrap',
                   }}>
@@ -235,7 +238,7 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
             <div className="flex gap-1 items-center h-4">
               {[0, 1, 2].map(i => (
                 <div key={i} className="w-1.5 h-1.5 rounded-full"
-                  style={{ background: 'rgba(254,129,19,.5)', animation: `waveBar .8s ease-in-out ${i * .2}s infinite alternate` }} />
+                  style={{ background: 'rgba(201,100,66,.55)', animation: `waveBar .8s ease-in-out ${i * .2}s infinite alternate` }} />
               ))}
             </div>
           ) : null}
@@ -313,7 +316,7 @@ const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; di
       </div>
       <button onClick={submit} disabled={disabled || !value.trim()}
         className="w-9 h-9 rounded-xl flex items-center justify-center transition-all disabled:opacity-20 cursor-pointer"
-        style={{ background: 'linear-gradient(135deg,#FE8113,#D96B0B)' }}>
+        style={{ background: 'linear-gradient(135deg,#c96442,#b8573a)' }}>
         <Send size={15} className="text-white" />
       </button>
     </div>
@@ -358,13 +361,13 @@ const ConversationList = ({
       {collapsed ? (
         <button onClick={onNewChat} title="New Chat"
           className="mx-auto mb-3 w-9 h-9 flex items-center justify-center rounded-xl transition-all cursor-pointer flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg,#FE8113,#D96B0B)', color: '#fff' }}>
+          style={{ background: 'linear-gradient(135deg,#c96442,#b8573a)', color: '#fff' }}>
           <Plus size={15} />
         </button>
       ) : (
         <button onClick={onNewChat}
           className="mx-3 mb-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
-          style={{ background: 'linear-gradient(135deg,#FE8113,#D96B0B)', color: '#fff' }}>
+          style={{ background: 'linear-gradient(135deg,#c96442,#b8573a)', color: '#fff' }}>
           <Plus size={15} /> <span>New Chat 新聊天</span>
         </button>
       )}
@@ -434,19 +437,59 @@ const ConversationList = ({
 };
 
 // ─── UserMenu ─────────────────────────────────────────────────────────────────
+const PLAN_BADGE: Record<string, { label: string; bg: string; text: string }> = {
+  free:  { label: 'Free', bg: 'rgba(120,120,120,.15)', text: '#888' },
+  plus:  { label: 'Plus', bg: 'rgba(201,100,66,.15)',  text: '#c96442' },
+  pro:   { label: 'Pro',  bg: 'rgba(139,92,246,.18)',  text: '#8b5cf6' },
+};
+
 const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
   const { data: session } = useSession();
   const { theme } = useThemeStore();
+  const [plan, setPlan] = React.useState<string>('free');
+  const [portalLoading, setPortalLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!session?.user) return;
+    fetch('/api/usage')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.plan) setPlan(data.plan); })
+      .catch(() => {});
+  }, [session]);
+
+  const openPortal = React.useCallback(async () => {
+    setPortalLoading(true);
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json() as { url?: string; error?: string };
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error ?? 'Could not open billing portal.');
+      }
+    } catch {
+      alert('Network error. Please try again.');
+    } finally {
+      setPortalLoading(false);
+    }
+  }, []);
+
   if (!session?.user) return null;
+
+  const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.free;
+  const isPaid = plan === 'plus' || plan === 'pro';
+
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-2">
-        <img src={session.user.image ?? ''} alt={session.user.name ?? ''} referrerPolicy="no-referrer"
-          title={session.user.name ?? ''}
-          className="w-7 h-7 rounded-full object-cover border cursor-pointer"
-          style={{ borderColor: 'rgba(254,129,19,.25)' }}
-          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        <button onClick={() => signOut({ callbackUrl: '/sign-in' })} title="Sign out"
+        <div className="relative">
+          <img src={session.user.image ?? ''} alt={session.user.name ?? ''} referrerPolicy="no-referrer"
+            title={`${session.user.name} · ${badge.label}`}
+            className="w-7 h-7 rounded-full object-cover border cursor-pointer"
+            style={{ borderColor: 'rgba(201,100,66,.25)' }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
+        <button onClick={() => signOut({ callbackUrl: '/' })} title="Sign out"
           className="p-1.5 rounded-lg transition-all cursor-pointer"
           style={{ color: theme.textMuted }}
           onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,.1)'; }}
@@ -457,23 +500,60 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
     );
   }
   return (
-    <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: theme.bgCard }}>
-      <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
-        className="w-7 h-7 rounded-full object-cover flex-shrink-0 border"
-        style={{ borderColor: theme.bgCardBorder ?? 'transparent' }}
-        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium truncate" style={{ color: theme.textPrimary }}>{session.user.name}</p>
-        <p className="text-[10px] truncate" style={{ color: theme.textMuted }}>{session.user.email}</p>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: theme.bgCard }}>
+        <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
+          className="w-7 h-7 rounded-full object-cover flex-shrink-0 border"
+          style={{ borderColor: theme.bgCardBorder ?? 'transparent' }}
+          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium truncate" style={{ color: theme.textPrimary }}>{session.user.name}</p>
+          <span
+            className="inline-block text-[9px] font-semibold px-1.5 py-px rounded-full leading-tight mt-0.5"
+            style={{ background: badge.bg, color: badge.text }}>
+            {badge.label}
+          </span>
+        </div>
+        <button onClick={() => signOut({ callbackUrl: '/' })}
+          className="p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0"
+          style={{ color: theme.textMuted }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,.1)'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; e.currentTarget.style.background = 'transparent'; }}
+          title="Sign out">
+          <LogOut size={13} />
+        </button>
       </div>
-      <button onClick={() => signOut({ callbackUrl: '/sign-in' })}
-        className="p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0"
-        style={{ color: theme.textMuted }}
-        onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,.1)'; }}
-        onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; e.currentTarget.style.background = 'transparent'; }}
-        title="Sign out">
-        <LogOut size={13} />
-      </button>
+      {PAID_PLANS_LIVE ? (
+        isPaid ? (
+          <button
+            onClick={openPortal}
+            disabled={portalLoading}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: theme.bgInput, color: theme.textMuted, border: `1px solid ${theme.bgCardBorder ?? 'transparent'}` }}
+            onMouseEnter={e => { if (!portalLoading) e.currentTarget.style.color = theme.accentText; }}
+            onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; }}
+            title="Manage subscription">
+            {portalLoading ? (
+              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40 20" />
+              </svg>
+            ) : (
+              <Zap size={11} />
+            )}
+            {portalLoading ? 'Opening…' : 'Manage subscription'}
+          </button>
+        ) : (
+          <a
+            href="/#pricing"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer"
+            style={{ background: 'rgba(201,100,66,.10)', color: '#c96442', border: '1px solid rgba(201,100,66,.20)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,100,66,.18)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,100,66,.10)'; }}>
+            <Zap size={11} />
+            Upgrade to Plus
+          </a>
+        )
+      ) : null}
     </div>
   );
 };
@@ -496,7 +576,7 @@ const ThemeToggle = () => {
 const PERSONA_META: Record<Persona, {
   name: string; tagline: string; accent: string; accentBg: string; voiceId: string | null;
 }> = {
-  alex:  { name: 'Alex',   tagline: 'Chill friend · Cali vibes',  accent: '#FE8113', accentBg: 'rgba(254,129,19,.10)', voiceId: null },
+  alex:  { name: 'Alex',   tagline: 'Chill friend · Cali vibes',  accent: '#c96442', accentBg: 'rgba(201,100,66,.10)', voiceId: null },
   trump: { name: 'Donald', tagline: '45th President · Tremendous!', accent: '#CC1A1A', accentBg: 'rgba(204,26,26,.10)',   voiceId: 'trump' },
 };
 
@@ -573,6 +653,25 @@ export const VoiceInterface = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [brandIconHovered, setBrandIconHovered] = useState(false);
 
+  // ── Checkout success toast ────────────────────────────────────────────────
+  const searchParams = useSearchParams();
+  const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      setShowCheckoutSuccess(true);
+      // Remove the query param from the URL without a full navigation
+      const url = new URL(window.location.href);
+      url.searchParams.delete('checkout');
+      window.history.replaceState({}, '', url.toString());
+      const t = setTimeout(() => setShowCheckoutSuccess(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [searchParams]);
+
+  // ── Usage quota ───────────────────────────────────────────────────────────
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+
   // ── API health status ─────────────────────────────────────────────────────
   const [apiReady, setApiReady] = useState<boolean | null>(null);
   useEffect(() => {
@@ -587,7 +686,11 @@ export const VoiceInterface = () => {
     };
     check();
     const id = setInterval(check, 60_000);
-    return () => { cancelled = true; clearInterval(id); };
+    // Re-check immediately when the tab becomes visible again after being
+    // in the background (browsers throttle/freeze timers for inactive tabs).
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { cancelled = true; clearInterval(id); document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
   // Refs for passing dynamic values into the transport body function
@@ -618,9 +721,23 @@ export const VoiceInterface = () => {
     setMessages,
     status,
     stop: stopChat,
+    error: chatError,
   } = useChat({ transport });
 
   const isLoading = status === 'streaming' || status === 'submitted';
+
+  // ── Fetch usage from /api/usage ────────────────────────────────────────────
+  const fetchUsage = useCallback(async () => {
+    try {
+      const res = await fetch('/api/usage', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data: UsageInfo = await res.json();
+      setUsage(data);
+      setLimitReached(data.window !== 'unlimited' && data.used >= data.limit);
+    } catch {
+      // non-fatal
+    }
+  }, []);
 
   // ── Auto-scroll ────────────────────────────────────────────────────────────
   const desktopMsgRef = useRef<HTMLDivElement>(null);
@@ -641,15 +758,34 @@ export const VoiceInterface = () => {
       }
       // Update conversation sort order in UI
       if (currentConvIdRef.current) touchConvStore(currentConvIdRef.current);
+      // Refresh usage counter after each completed round
+      fetchUsage();
     }
     prevStatus.current = status;
-  }, [status, chatMessages, speak, activeVoiceId, touchConvStore]);
+  }, [status, chatMessages, speak, activeVoiceId, touchConvStore, fetchUsage]);
+
+  // ── Handle chatError — detect 429 limit_reached ───────────────────────────
+  useEffect(() => {
+    if (chatError) {
+      const msg = chatError.message ?? '';
+      if (msg.includes('429') || msg.toLowerCase().includes('limit')) {
+        setLimitReached(true);
+        fetchUsage();
+      }
+    }
+  }, [chatError, fetchUsage]);
 
   // ── Voice → send ──────────────────────────────────────────────────────────
   const handleSendRef = useRef<(c: string) => void>(() => {});
 
   const handleSend = useCallback((content: string) => {
     if (!content.trim()) return;
+
+    // Client-side pre-check: block if quota is already exhausted
+    if (usage && usage.window !== 'unlimited' && usage.used >= usage.limit) {
+      setLimitReached(true);
+      return;
+    }
 
     let convId = currentConvIdRef.current;
     let convTitle = '';
@@ -670,7 +806,7 @@ export const VoiceInterface = () => {
     setTranscript('');
     stop();
     sendMessage({ text: content });
-  }, [addConversation, conversations, sendMessage, setCurrentConversationId, setTranscript, stop]);
+  }, [addConversation, conversations, sendMessage, setCurrentConversationId, setTranscript, stop, usage]);
 
   useEffect(() => { handleSendRef.current = handleSend; }, [handleSend]);
 
@@ -692,6 +828,9 @@ export const VoiceInterface = () => {
     prevUserIdRef.current = userId;
     let cancelled = false;
 
+    // Fetch usage quota alongside conversations
+    fetchUsage();
+
     (async () => {
       try {
         const res = await fetch('/api/conversations');
@@ -704,6 +843,7 @@ export const VoiceInterface = () => {
         setCurrentConversationId(latest.id);
         currentConvIdRef.current = latest.id;
         currentConvTitleRef.current = latest.title;
+        if (latest.persona) setPersona(latest.persona);
         // Load messages for the latest conversation
         const msgRes = await fetch(`/api/conversations/${latest.id}/messages`);
         if (cancelled) return;
@@ -716,19 +856,22 @@ export const VoiceInterface = () => {
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, fetchUsage]);
 
   // ── Select a conversation ──────────────────────────────────────────────────
   const handleSelectConversation = useCallback(async (conv: Conversation) => {
     setCurrentConversationId(conv.id);
     currentConvIdRef.current = conv.id;
     currentConvTitleRef.current = conv.title;
+    if (conv.persona && conv.persona !== selectedPersona) {
+      setPersona(conv.persona);
+    }
     try {
       const res = await fetch(`/api/conversations/${conv.id}/messages`);
       const msgs = await res.json();
       setMessages(Array.isArray(msgs) ? msgs.map(toUIMessage) : []);
     } catch { setMessages([]); }
-  }, [setCurrentConversationId, setMessages]);
+  }, [selectedPersona, setCurrentConversationId, setMessages, setPersona]);
 
   // ── New chat ──────────────────────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
@@ -781,7 +924,7 @@ export const VoiceInterface = () => {
   // ── Speech error banner ───────────────────────────────────────────────────
   const speechErrorBanner = speechError === 'network' ? (
     <div className="flex flex-col gap-1.5 px-4 py-3 rounded-xl text-xs border text-center mx-4 mb-2"
-      style={{ background: 'rgba(254,129,19,.06)', borderColor: 'rgba(254,129,19,.2)', color: 'rgba(255,175,100,.8)' }}>
+      style={{ background: 'rgba(201,100,66,.06)', borderColor: 'rgba(201,100,66,.20)', color: 'rgba(217,119,87,.9)' }}>
       <p>语音识别需要 Google 服务，国内网络暂不可用</p>
       <p style={{ color: theme.textMuted }}>请使用下方输入框打字交流</p>
     </div>
@@ -792,10 +935,62 @@ export const VoiceInterface = () => {
     </div>
   ) : null;
 
+  // ── Usage pill & limit banner ──────────────────────────────────────────────
+  const usagePill = usage && usage.window !== 'unlimited' ? (() => {
+    const remaining = Math.max(0, usage.limit - usage.used);
+    const isLow = remaining <= Math.ceil(usage.limit * 0.2);
+    const color = limitReached ? '#ef4444' : isLow ? '#f59e0b' : theme.textMuted;
+    const label =
+      usage.window === 'week'
+        ? `${remaining}/${usage.limit} free rounds this week`
+        : usage.window === 'month'
+          ? `${remaining}/${usage.limit} rounds this month`
+          : `${remaining}/${usage.limit} rounds`;
+    return (
+      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full border"
+        style={{ color, borderColor: `${color}30`, background: `${color}0f` }}>
+        {label}
+      </span>
+    );
+  })() : null;
+
+  const limitBanner = limitReached && usage ? (() => {
+    const resetMs = usage.resetAt;
+    let resetLabel = '';
+    if (resetMs) {
+      const diffMs = resetMs - Date.now();
+      const diffH = Math.ceil(diffMs / 3600000);
+      const diffM = Math.ceil(diffMs / 60000);
+      resetLabel = diffH >= 1 ? ` in ${diffH}h` : ` in ${diffM}m`;
+    }
+    const isPlusCap = usage.plan === 'plus';
+    return (
+      <div className="flex flex-col gap-1.5 px-4 py-3 rounded-xl text-xs border text-center mx-4 mb-2"
+        style={{ background: 'rgba(239,68,68,.06)', borderColor: 'rgba(239,68,68,.20)', color: 'rgba(248,113,113,.9)' }}>
+        {isPlusCap ? (
+          <>
+            <p className="font-semibold">Monthly limit reached</p>
+            <p style={{ color: theme.textMuted }}>You&apos;ve used all {usage.limit} rounds this month. Resets{resetLabel}.</p>
+          </>
+        ) : (
+          <>
+            <p className="font-semibold">Free limit reached</p>
+            <p style={{ color: theme.textMuted }}>
+              You&apos;ve used all {usage.limit} free rounds this week.
+              {resetLabel ? ` Resets${resetLabel}.` : ''}{' '}
+              <a href="/#pricing" style={{ color: '#d97757', textDecoration: 'underline' }}>Pricing</a>
+              {' '}— paid upgrades are temporarily unavailable.
+            </p>
+          </>
+        )}
+      </div>
+    );
+  })() : null;
+
   // ── Controls strip ────────────────────────────────────────────────────────
   const Controls = () => {
     const pa = PERSONA_META[selectedPersona].accent;
-    const paRgb = selectedPersona === 'trump' ? '204,26,26' : '254,129,19';
+      const paRgb = selectedPersona === 'trump' ? '204,26,26' : '201,100,66';
     return (
     <div className="flex items-center justify-center gap-3">
       <button onClick={() => setInputLang(l => l === 'en-US' ? 'zh-CN' : 'en-US')}
@@ -806,9 +1001,10 @@ export const VoiceInterface = () => {
 
       <button
         onClick={isListening ? () => setTranscript('') : handleMicClick}
-        className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative"
+        disabled={limitReached}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-200 cursor-pointer relative disabled:opacity-40 disabled:cursor-not-allowed"
         style={{
-          background: isListening ? `rgba(${paRgb},.15)` : `linear-gradient(135deg,${pa},${selectedPersona === 'trump' ? '#991010' : '#D96B0B'})`,
+          background: isListening ? `rgba(${paRgb},.15)` : `linear-gradient(135deg,${pa},${selectedPersona === 'trump' ? '#991010' : '#b8573a'})`,
           border: isListening ? `2px solid rgba(${paRgb},.5)` : '2px solid transparent',
           boxShadow: isListening ? `0 0 20px rgba(${paRgb},.3)` : `0 4px 16px rgba(${paRgb},.25)`,
         }}>
@@ -843,6 +1039,25 @@ export const VoiceInterface = () => {
     <>
       <style>{STYLES}</style>
 
+      {/* ── Checkout success toast ─────────────────────────────────────────── */}
+      {showCheckoutSuccess && (
+        <div
+          className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-sm font-medium"
+          style={{ background: '#1a2e1a', border: '1px solid rgba(34,197,94,.35)', color: '#86efac', animation: 'fadeUp .4s ease-out both', maxWidth: 400, width: 'calc(100vw - 32px)' }}>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" className="flex-shrink-0">
+            <circle cx="9" cy="9" r="8" fill="rgba(34,197,94,.2)" stroke="rgba(34,197,94,.6)" strokeWidth="1.5"/>
+            <path d="M5.5 9l2.5 2.5 4.5-4.5" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <div className="flex-1">
+            <span className="font-semibold" style={{ color: '#4ade80' }}>Payment successful!</span>
+            {' '}Your plan has been upgraded. Enjoy unlimited conversations.
+          </div>
+          <button onClick={() => setShowCheckoutSuccess(false)} className="flex-shrink-0 opacity-60 hover:opacity-100 cursor-pointer" aria-label="Dismiss">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ═══ DESKTOP ≥ lg ═══════════════════════════════════════════════════════ */}
       <div className="hidden lg:flex h-screen w-full overflow-hidden" style={{ background: theme.bgMain }}>
 
@@ -865,23 +1080,20 @@ export const VoiceInterface = () => {
                 onMouseEnter={() => setBrandIconHovered(true)}
                 onMouseLeave={() => setBrandIconHovered(false)}
                 title="Expand sidebar"
-                className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer transition-all duration-200 mx-auto"
+                className="w-8 h-8 flex items-center justify-center cursor-pointer transition-all duration-200 mx-auto rounded-xl"
                 style={{
-                  background: brandIconHovered ? theme.bgInput : 'linear-gradient(135deg,#D96B0B,#FE8113)',
-                  border: brandIconHovered ? `1px solid rgba(254,129,19,.35)` : '1px solid transparent',
+                  background: brandIconHovered ? theme.bgInput : 'transparent',
+                  border: brandIconHovered ? `1px solid rgba(201,100,66,.35)` : '1px solid transparent',
                 }}>
                 {brandIconHovered
                   ? <PanelLeftOpen size={16} style={{ color: theme.accentText }} />
-                  : <Sparkles size={14} className="text-white" />}
+                  : <AuraeLogo size={28} />}
               </button>
             ) : (
               <>
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#D96B0B,#FE8113)' }}>
-                  <Sparkles size={14} className="text-white" />
-                </div>
+                <AuraeLogo size={28} />
                 <div className="flex-1 min-w-0">
-                  <h1 className="text-sm font-bold tracking-tight leading-none" style={{ color: theme.textPrimary }}>SpeakStar</h1>
+                  <h1 className="text-sm font-bold tracking-tight leading-none" style={{ color: theme.textPrimary }}>AURAE VOICE</h1>
                   <p className="text-[9px] font-medium tracking-widest uppercase mt-0.5" style={{ color: theme.accentPale }}>AI English Tutor</p>
                 </div>
                 <ThemeToggle />
@@ -939,7 +1151,7 @@ export const VoiceInterface = () => {
                 <span className="text-[11px] font-medium tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
               </div>
               <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} apiReady={apiReady === true} size={140} />
-              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
+              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
             </div>
           ) : (
             <div className="avatar-strip flex-shrink-0 flex items-center gap-3 px-5 py-2.5 border-b relative z-10"
@@ -1002,7 +1214,7 @@ export const VoiceInterface = () => {
                     ))}
                   </div>
                 )}
-                <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
+                <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
               </div>
             </div>
           )}
@@ -1032,7 +1244,7 @@ export const VoiceInterface = () => {
               <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .25s ease-out' }}>
                 <span className="text-[10px] tracking-wide px-1 select-none" style={{ color: theme.textDimmer }}>You</span>
                 <div className="max-w-[78%] px-4 py-3 rounded-2xl text-sm italic border border-dashed"
-                  style={{ background: 'rgba(254,129,19,.05)', borderColor: 'rgba(254,129,19,.18)', color: 'rgba(255,175,100,.65)' }}>
+                  style={{ background: 'rgba(201,100,66,.05)', borderColor: 'rgba(201,100,66,.20)', color: 'rgba(217,119,87,.70)' }}>
                   &ldquo;{transcript}&rdquo;
                 </div>
               </div>
@@ -1040,12 +1252,13 @@ export const VoiceInterface = () => {
           </div>
 
           {speechErrorBanner}
+          {limitBanner}
 
           <div className="flex-shrink-0 px-6 pt-3 pb-5 border-t"
             style={{ borderColor: theme.bgFooterBorder, background: theme.bgFooter, backdropFilter: 'blur(20px)' }}>
             {showTextInput && (
               <div className="mb-3" style={{ animation: 'fadeUp .25s ease-out' }}>
-                <TextInputBar onSend={handleTextSend} disabled={isLoading} />
+                <TextInputBar onSend={handleTextSend} disabled={isLoading || limitReached} />
               </div>
             )}
             <div className="flex flex-col items-center gap-2">
@@ -1062,6 +1275,7 @@ export const VoiceInterface = () => {
                   {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
                   {selectedPersona === 'trump' && ' · 🇺🇸 Trump voice'}
                 </span>
+                {usagePill}
               </div>
             </div>
           </div>
@@ -1087,7 +1301,7 @@ export const VoiceInterface = () => {
               <Menu size={18} />
             </button>
             <div>
-              <h1 className="text-base font-bold tracking-tight leading-none" style={{ color: theme.textPrimary }}>SpeakStar</h1>
+              <h1 className="text-base font-bold tracking-tight leading-none" style={{ color: theme.textPrimary }}>AURAE VOICE</h1>
               <p className="text-[9px] font-medium tracking-widest uppercase" style={{ color: theme.accentPale }}>AI English Tutor</p>
             </div>
           </div>
@@ -1101,9 +1315,9 @@ export const VoiceInterface = () => {
             {session?.user && (
               <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
                 className="w-8 h-8 rounded-full object-cover border cursor-pointer"
-                style={{ borderColor: 'rgba(254,129,19,.3)' }}
+                style={{ borderColor: 'rgba(201,100,66,.30)' }}
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                onClick={() => signOut({ callbackUrl: '/sign-in' })} />
+                onClick={() => signOut({ callbackUrl: '/' })} />
             )}
           </div>
         </header>
@@ -1116,7 +1330,7 @@ export const VoiceInterface = () => {
               <span className="text-[10px] font-medium" style={{ color: statusColor }}>{statusLabel}</span>
             </div>
             <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} size={110} />
-            <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
+            <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
           </div>
         ) : (
           <div className="avatar-strip flex-shrink-0 relative z-10 flex items-center gap-3 px-4 py-2 border-b"
@@ -1155,7 +1369,7 @@ export const VoiceInterface = () => {
                 title="Switch character">
                 <Users size={13} />
               </button>
-              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#FE8113]'} />
+              <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
             </div>
           </div>
         )}
@@ -1205,7 +1419,7 @@ export const VoiceInterface = () => {
             <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .2s ease-out' }}>
               <span className="text-[10px] tracking-wide px-1 select-none" style={{ color: theme.textDimmer }}>You</span>
               <div className="max-w-[78%] px-4 py-3 rounded-2xl text-sm italic border border-dashed"
-                style={{ background: 'rgba(254,129,19,.05)', borderColor: 'rgba(254,129,19,.18)', color: 'rgba(255,175,100,.65)' }}>
+                style={{ background: 'rgba(201,100,66,.05)', borderColor: 'rgba(201,100,66,.20)', color: 'rgba(217,119,87,.70)' }}>
                 &ldquo;{transcript}&rdquo;
               </div>
             </div>
@@ -1213,19 +1427,23 @@ export const VoiceInterface = () => {
         </div>
 
         {speechErrorBanner}
+        {limitBanner}
 
         {showTextInput && (
           <div className="relative z-10 px-4 pb-2" style={{ animation: 'fadeUp .25s ease-out' }}>
-            <TextInputBar onSend={handleTextSend} disabled={isLoading} />
+            <TextInputBar onSend={handleTextSend} disabled={isLoading || limitReached} />
           </div>
         )}
 
         <footer className="relative z-10 flex-shrink-0 px-5 pb-8 pt-3 border-t"
           style={{ borderColor: theme.bgFooterBorder, background: theme.bgFooter, backdropFilter: 'blur(16px)' }}>
           <Controls />
-          <p className="text-center text-[10px] mt-3 tracking-wide" style={{ color: theme.textDimmer }}>
-            {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
-          </p>
+          <div className="flex items-center justify-center gap-3 mt-3">
+            <p className="text-center text-[10px] tracking-wide" style={{ color: theme.textDimmer }}>
+              {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
+            </p>
+            {usagePill}
+          </div>
         </footer>
 
         {showMobileDrawer && (
@@ -1238,12 +1456,9 @@ export const VoiceInterface = () => {
               <div className="flex items-center justify-between px-4 pt-12 pb-4 border-b"
                 style={{ borderColor: theme.bgSidebarBorder }}>
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg,#D96B0B,#FE8113)' }}>
-                    <Sparkles size={13} className="text-white" />
-                  </div>
+                  <AuraeLogo size={28} />
                   <div>
-                    <h2 className="text-sm font-bold" style={{ color: theme.textPrimary }}>SpeakStar</h2>
+                    <h2 className="text-sm font-bold" style={{ color: theme.textPrimary }}>AURAE VOICE</h2>
                     <p className="text-[9px] font-medium tracking-widest uppercase" style={{ color: theme.accentPale }}>Chats</p>
                   </div>
                 </div>

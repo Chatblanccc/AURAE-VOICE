@@ -21,12 +21,12 @@ const PERSONA_CONFIG = {
   alex: {
     name: 'Alex',
     subtitle: 'AI English Tutor',
-    accent: '#FE8113',
-    accentActive: '#FF9E45',
-    accentListening: '#FFA855',
-    borderColor: (isDark: boolean) => isDark ? 'rgba(254,129,19,.12)' : 'rgba(254,129,19,.18)',
-    haloActive: (isDark: boolean) => `rgba(254,129,19,${isDark ? '.22' : '.14'})`,
-    haloIdle:   (isDark: boolean) => `rgba(254,129,19,${isDark ? '.10' : '.07'})`,
+    accent: '#c96442',
+    accentActive: '#d97757',
+    accentListening: '#d97757',
+    borderColor: (isDark: boolean) => isDark ? 'rgba(201,100,66,.14)' : 'rgba(201,100,66,.20)',
+    haloActive: (isDark: boolean) => `rgba(201,100,66,${isDark ? '.24' : '.16'})`,
+    haloIdle:   (isDark: boolean) => `rgba(201,100,66,${isDark ? '.12' : '.08'})`,
   },
   trump: {
     name: 'Donald',

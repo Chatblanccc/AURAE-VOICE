@@ -7,7 +7,14 @@
  */
 import { neon } from '@neondatabase/serverless';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_CeMK7bXY3NwG@ep-lucky-mountain-a1z10jvf-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('Error: DATABASE_URL environment variable is not set.');
+  console.error('Run: export DATABASE_URL="your_neon_connection_string"');
+  process.exit(1);
+}
+
+const sql = neon(DATABASE_URL);
 
 const stableId = process.argv[2];
 if (!stableId) {
@@ -15,8 +22,6 @@ if (!stableId) {
   console.error('  Log in once with the new code, then check /api/debug for your stable userId');
   process.exit(1);
 }
-
-const sql = neon(DATABASE_URL);
 
 async function main() {
   console.log('Target stable ID:', stableId);

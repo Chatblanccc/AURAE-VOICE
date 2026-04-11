@@ -5,10 +5,14 @@ export default auth((req) => {
   const { nextUrl, auth: session } = req;
   const isSignedIn = !!session?.user;
 
-  // Always allow auth callbacks and the sign-in page
+  // Always allow auth callbacks, the sign-in page, the public landing page, health check,
+  // and Stripe webhooks (verified by signature inside the route, not session cookies).
   if (
+    nextUrl.pathname === '/' ||
     nextUrl.pathname.startsWith('/api/auth') ||
-    nextUrl.pathname.startsWith('/sign-in')
+    nextUrl.pathname.startsWith('/sign-in') ||
+    nextUrl.pathname === '/api/health' ||
+    nextUrl.pathname === '/api/stripe/webhook'
   ) {
     return NextResponse.next();
   }

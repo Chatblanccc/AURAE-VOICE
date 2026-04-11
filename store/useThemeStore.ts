@@ -19,6 +19,6 @@ export const useThemeStore = create<ThemeStore>()(
           return { mode: newMode, theme: newMode === 'dark' ? darkTheme : lightTheme };
         }),
     }),
-    { name: 'speakstar-theme' }
+    { name: 'aurae-theme' }
   )
 );

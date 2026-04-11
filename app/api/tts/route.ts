@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
 
   const apiKey = process.env.FISH_AUDIO_API_KEY;
   if (!apiKey) {
-    return new Response('FISH_AUDIO_API_KEY not configured', { status: 500 });
+    console.error('[tts] FISH_AUDIO_API_KEY is not configured');
+    return new Response('TTS service unavailable', { status: 503 });
   }
 
   // resolvedId already computed above (alias or validated raw ID)
@@ -69,11 +70,7 @@ export async function POST(req: NextRequest) {
   if (!fishRes.ok) {
     const detail = await fishRes.text().catch(() => '');
     console.error('[tts] Fish Audio error', fishRes.status, detail.slice(0, 200));
-    const msg =
-      fishRes.status === 401 ? 'Invalid Fish Audio API key'
-        : fishRes.status === 402 ? 'Fish Audio credits exhausted'
-          : `Fish Audio error: ${fishRes.status}`;
-    return new Response(msg, { status: fishRes.status });
+    return new Response('TTS service unavailable', { status: 502 });
   }
 
   // Buffer the complete audio — streaming through Next.js can corrupt binary data
