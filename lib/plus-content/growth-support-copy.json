@@ -1,0 +1,22 @@
+{
+  "upgradeNudges": {
+    "nearLimit": {
+      "en": "You are close to this week's free limit. Unlock Plus for 1,000 monthly conversations and 40+ scenarios.",
+      "zh": "你快达到本周免费额度了。升级 Plus，解锁每月 1000 次对话和 40+ 练习场景。"
+    },
+    "scenarioLocked": {
+      "en": "This scenario is available in Plus. Start your 30-day guarantee plan anytime.",
+      "zh": "该场景为 Plus 权益。可随时开通，享受 30 天保障。"
+    },
+    "streakMomentum": {
+      "en": "You're building momentum. Plus gives you structured daily plans to keep improving.",
+      "zh": "你的练习势头很好。Plus 提供结构化每日计划，帮助持续进步。"
+    }
+  },
+  "prioritySupportAutoReply": {
+    "subjectEn": "[AURAE VOICE] Priority Support Received",
+    "subjectZh": "【AURAE VOICE】已收到你的优先支持请求",
+    "bodyEn": "Thanks for contacting Priority Support. We usually reply within 12 hours. Please include: account email, device/browser, issue screenshot, and scenario ID if applicable.",
+    "bodyZh": "感谢联系优先支持，我们通常会在 12 小时内回复。请补充：账号邮箱、设备/浏览器、问题截图，以及相关场景 ID（如有）。"
+  }
+}

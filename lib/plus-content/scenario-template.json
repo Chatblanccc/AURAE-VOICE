@@ -1,0 +1,121 @@
+{
+  "$schemaVersion": "1.0.0",
+  "description": "Single scenario template for Plus content production pipeline.",
+  "requiredFields": [
+    "scenarioId",
+    "category",
+    "level",
+    "personaRole",
+    "userGoal",
+    "successCriteria",
+    "openingLine",
+    "dialogueVariants",
+    "feedbackRules",
+    "copy"
+  ],
+  "template": {
+    "scenarioId": "travel.hotel_check_in.basic_001",
+    "category": "travel",
+    "level": "beginner",
+    "personaRole": "Hotel front desk receptionist",
+    "userGoal": "Check in at a hotel and ask for basic services politely.",
+    "successCriteria": [
+      "User states reservation name clearly",
+      "User confirms check-in and check-out dates",
+      "User asks one follow-up service question"
+    ],
+    "openingLine": "Welcome to Sunrise Hotel. May I have your name, please?",
+    "dialogueVariants": [
+      {
+        "variantId": "main",
+        "label": "Happy path",
+        "turns": [
+          {
+            "speaker": "ai",
+            "text": "Welcome to Sunrise Hotel. May I have your name, please?",
+            "intent": "greeting_and_identity_check"
+          },
+          {
+            "speaker": "user",
+            "text": "Hi, I have a reservation under Mei Lin.",
+            "intent": "state_reservation_name"
+          },
+          {
+            "speaker": "ai",
+            "text": "Thank you, Ms. Lin. You are staying for two nights, correct?",
+            "intent": "confirm_stay_length"
+          },
+          {
+            "speaker": "user",
+            "text": "Yes, from Thursday to Saturday.",
+            "intent": "confirm_dates"
+          }
+        ]
+      },
+      {
+        "variantId": "common-mistake",
+        "label": "Missing details",
+        "turns": [
+          {
+            "speaker": "user",
+            "text": "I booked room.",
+            "intent": "incomplete_statement"
+          },
+          {
+            "speaker": "ai",
+            "text": "No problem. You can say: I have a reservation under [name].",
+            "intent": "light_correction"
+          }
+        ]
+      },
+      {
+        "variantId": "confidence-boost",
+        "label": "Extra service request",
+        "turns": [
+          {
+            "speaker": "user",
+            "text": "Could I also request a wake-up call at 7 a.m.?",
+            "intent": "service_request"
+          },
+          {
+            "speaker": "ai",
+            "text": "Of course. I have added that to your booking.",
+            "intent": "service_confirmation"
+          }
+        ]
+      }
+    ],
+    "feedbackRules": [
+      {
+        "category": "grammar",
+        "trigger": "User omits article or subject in reservation sentence.",
+        "coachReplyTemplate": "Great start. Try: I have a reservation under Mei Lin."
+      },
+      {
+        "category": "pronunciation",
+        "trigger": "Date expressions are unclear (Thursday/Saturday).",
+        "coachReplyTemplate": "Nice effort. Stress the first syllable: THURS-day, SAT-ur-day."
+      },
+      {
+        "category": "interaction",
+        "trigger": "User responds only yes/no repeatedly.",
+        "coachReplyTemplate": "Good. Add one detail to sound natural, for example your check-out date."
+      }
+    ],
+    "copy": {
+      "title": {
+        "en": "Hotel Check-in",
+        "zh": "酒店入住办理"
+      },
+      "summary": {
+        "en": "Practice checking in, confirming dates, and asking for one service politely.",
+        "zh": "练习酒店入住、确认日期，并礼貌提出一项服务需求。"
+      },
+      "tags": [
+        "travel",
+        "polite-requests",
+        "dates"
+      ]
+    }
+  }
+}

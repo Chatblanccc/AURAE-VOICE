@@ -15,7 +15,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare,
   Send, Keyboard, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
-  BookOpen, CheckCircle, Zap, Users,
+  BookOpen, CheckCircle, Zap, Users, ChevronDown,
 } from 'lucide-react';
 
 import type { Conversation, Persona, UsageInfo } from '@/types';
@@ -81,10 +81,193 @@ function getUserId(session: ReturnType<typeof useSession>['data']) {
 
 /** Extract plain text from UIMessage parts for TTS */
 function extractText(msg: UIMessage): string {
-  return msg.parts
+  const rawText = msg.parts
     .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
     .map(p => p.text)
     .join('');
+  const parsed = stripToolCallArtifacts(rawText);
+  const toolParts = msg.parts.filter((p): p is ToolPartLike => p.type.startsWith('tool-'));
+  const hasAnyCard = toolParts.length > 0 || !!parsed.correction || !!parsed.challenge || !!parsed.vocabulary;
+  const cleanedText = parsed.cleanedText;
+  if (cleanedText) {
+    if (hasAnyCard && looksLikeThinkingProcess(cleanedText)) {
+      return '';
+    }
+    return cleanedText;
+  }
+  return getToolFallbackLine(toolParts) || getInlineFallbackLine(parsed);
+}
+
+function parseCorrectionPayload(text: string): { original?: string; corrected?: string; explanation?: string } | null {
+  const protocolMatch = text.match(/(?:functions\.)?correctGrammar:\d+\|(\{[\s\S]*?\})/im);
+  if (protocolMatch?.[1]) {
+    try {
+      const parsed = JSON.parse(protocolMatch[1]) as {
+        original?: string;
+        corrected?: string;
+        explanation?: string;
+      };
+      if (parsed.original || parsed.corrected || parsed.explanation) {
+        return parsed;
+      }
+    } catch {
+      // Fall through to non-JSON pattern parsing below.
+    }
+  }
+
+  const sourceMatch = text.match(/function\.correctGrammar\s*\(([\s\S]*?)\)\s*$/im)
+    ?? text.match(/correctGrammar\s*\(([\s\S]*?)\)\s*$/im);
+  if (!sourceMatch) return null;
+  const source = sourceMatch[1];
+
+  const readField = (keys: string[]): string | undefined => {
+    for (const key of keys) {
+      const quoted = new RegExp(`["']${key}["']\\s*:\\s*["']([\\s\\S]*?)["']`, 'i').exec(source);
+      if (quoted?.[1]) return quoted[1].trim();
+      const plain = new RegExp(`${key}\\s*[:：]\\s*["“”]?([^\\n\\r,}]+)`, 'i').exec(source);
+      if (plain?.[1]) return plain[1].trim();
+    }
+    return undefined;
+  };
+
+  const parsed = {
+    original: readField(['original', '原句']),
+    corrected: readField(['corrected', '修正', '纠正']),
+    explanation: readField(['explanation', '解释']),
+  };
+
+  if (!parsed.original && !parsed.corrected && !parsed.explanation) return null;
+  return parsed;
+}
+
+function parseChallengePayload(text: string): { type?: string; prompt?: string; hint?: string } | null {
+  const protocolMatch = text.match(/(?:functions\.)?issueChallenge:\d+\|(\{[\s\S]*?\})/im);
+  if (!protocolMatch?.[1]) return null;
+  try {
+    const parsed = JSON.parse(protocolMatch[1]) as { type?: string; prompt?: string; hint?: string };
+    if (parsed.type || parsed.prompt || parsed.hint) return parsed;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function parseVocabularyPayload(text: string): { word?: string; partOfSpeech?: string } | null {
+  const protocolMatch = text.match(/(?:functions\.)?explainVocabulary:\d+\|(\{[\s\S]*?\})/im);
+  if (!protocolMatch?.[1]) return null;
+  try {
+    const parsed = JSON.parse(protocolMatch[1]) as { word?: string; partOfSpeech?: string };
+    if (parsed.word || parsed.partOfSpeech) return parsed;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function stripToolCallArtifacts(text: string): {
+  cleanedText: string;
+  correction: { original: string; corrected: string; explanation: string } | null;
+  challenge: { type: string; prompt: string; hint?: string } | null;
+  vocabulary: { word: string; partOfSpeech?: string } | null;
+} {
+  const correction = parseCorrectionPayload(text);
+  const challenge = parseChallengePayload(text);
+  const vocabulary = parseVocabularyPayload(text);
+  const cleanedText = text
+    .replace(/(?:functions\.)?correctGrammar:\d+\|(\{[\s\S]*?\})/gim, '')
+    .replace(/(?:functions\.)?issueChallenge:\d+\|(\{[\s\S]*?\})/gim, '')
+    .replace(/(?:functions\.)?explainVocabulary:\d+\|(\{[\s\S]*?\})/gim, '')
+    .replace(/(?:functions\.)?[a-zA-Z_]\w*:\d+\|(\{[\s\S]*?\})/gim, '')
+    .replace(/functions?\.\w+\s*\([\s\S]*?\)\s*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return {
+    cleanedText,
+    correction: correction ? {
+      original: correction.original ?? '',
+      corrected: correction.corrected ?? '',
+      explanation: correction.explanation ?? '',
+    } : null,
+    challenge: challenge ? {
+      type: challenge.type ?? 'fill-in-blank',
+      prompt: challenge.prompt ?? '',
+      hint: challenge.hint,
+    } : null,
+    vocabulary: vocabulary ? {
+      word: vocabulary.word ?? '',
+      partOfSpeech: vocabulary.partOfSpeech,
+    } : null,
+  };
+}
+
+type ToolPartLike = {
+  type: string;
+  state?: string;
+  input?: { word?: string; partOfSpeech?: string };
+  output?: {
+    original?: string;
+    corrected?: string;
+    explanation?: string;
+    type?: string;
+    prompt?: string;
+    hint?: string;
+    word?: string;
+    partOfSpeech?: string;
+  };
+};
+
+function getToolFallbackLine(toolParts: ToolPartLike[]): string {
+  for (const p of toolParts) {
+    if (p.state !== 'output-available' || !p.output) continue;
+    if (p.type === 'tool-issueChallenge' && p.output.prompt) {
+      return `Quick challenge: ${p.output.prompt}`;
+    }
+  }
+  for (const p of toolParts) {
+    if (p.state !== 'output-available' || !p.output) continue;
+    if (p.type === 'tool-correctGrammar' && p.output.corrected) {
+      return `A more natural way to say it is: ${p.output.corrected}`;
+    }
+    if (p.type === 'tool-explainVocabulary') {
+      const word = p.input?.word ?? p.output.word;
+      if (word) return `Nice word to know: ${word}.`;
+    }
+  }
+  return '';
+}
+
+function getInlineFallbackLine(args: {
+  correction: { original: string; corrected: string; explanation: string } | null;
+  challenge: { type: string; prompt: string; hint?: string } | null;
+  vocabulary: { word: string; partOfSpeech?: string } | null;
+}): string {
+  if (args.challenge?.prompt) return `Quick challenge: ${args.challenge.prompt}`;
+  if (args.correction?.corrected) return `A more natural way to say it is: ${args.correction.corrected}`;
+  if (args.vocabulary?.word) return `Nice word to know: ${args.vocabulary.word}.`;
+  return '';
+}
+
+function looksLikeThinkingProcess(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  if (!normalized) return false;
+  if (normalized.length <= 24) return true;
+  return [
+    'sure thing',
+    'absolutely',
+    'let me',
+    'let us',
+    "let's",
+    "i'll",
+    'i will',
+    'okay',
+    'alright',
+    'hmm',
+    'thinking',
+    '让我想想',
+    '我想想',
+    '我来',
+  ].some(k => normalized.includes(k));
 }
 
 /** Convert a stored Message (role + content string) to UIMessage */
@@ -177,21 +360,35 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
   // Extract primary text content
   const textParts = message.parts.filter((p): p is { type: 'text'; text: string } => p.type === 'text');
   const fullText = textParts.map(p => p.text).join('');
+  const {
+    cleanedText,
+    correction: inlineCorrection,
+    challenge: inlineChallenge,
+    vocabulary: inlineVocabulary,
+  } = stripToolCallArtifacts(fullText);
 
   // Bilingual split (English / Chinese)
-  const hasChinese = /[\u4e00-\u9fff]/.test(fullText);
+  const hasChinese = /[\u4e00-\u9fff]/.test(cleanedText);
   const engLines: string[] = [];
   const zhLines: string[] = [];
   if (hasChinese) {
-    fullText.split('\n').map(l => l.trim()).filter(Boolean).forEach(l =>
+    cleanedText.split('\n').map(l => l.trim()).filter(Boolean).forEach(l =>
       (/[\u4e00-\u9fff]/.test(l) ? zhLines : engLines).push(l)
     );
   }
-  const mainText = hasChinese ? engLines.join('\n') || fullText : fullText;
+  const mainText = hasChinese ? engLines.join('\n') || cleanedText : cleanedText;
   const subText = hasChinese ? zhLines.join('\n') : '';
 
   // Extract tool parts
-  const toolParts = message.parts.filter(p => p.type.startsWith('tool-'));
+  const toolParts = message.parts.filter((p): p is ToolPartLike => p.type.startsWith('tool-'));
+  const hasAnyCard = toolParts.length > 0 || !!inlineCorrection || !!inlineChallenge || !!inlineVocabulary;
+  const visibleMainText = hasAnyCard && looksLikeThinkingProcess(mainText) ? '...' : mainText;
+  const fallbackLine = getToolFallbackLine(toolParts) || getInlineFallbackLine({
+    correction: inlineCorrection,
+    challenge: inlineChallenge,
+    vocabulary: inlineVocabulary,
+  });
+  const primaryText = visibleMainText || fallbackLine;
 
   const isStreaming = textParts.some(p => (p as { state?: string }).state === 'streaming');
 
@@ -215,10 +412,10 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
             : `1px solid ${theme.mode === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)'}`,
           backdropFilter: 'blur(10px)',
         }}>
-          {fullText ? (
+          {primaryText ? (
             <>
               <p style={{ color: u ? (theme.bubbleUserText ?? theme.textSecondary) : theme.bubbleAIText, whiteSpace: 'pre-wrap' }}>
-                {mainText}
+                {primaryText}
               </p>
               {subText && (
                 <p className="mt-2 pt-2 text-xs leading-relaxed border-t"
@@ -246,8 +443,31 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
         </div>
 
         {/* Tool cards — rendered outside the bubble, below it */}
-        {!u && toolParts.length > 0 && (
+        {!u && (toolParts.length > 0 || inlineCorrection || inlineChallenge || inlineVocabulary) && (
           <div className="mt-1 space-y-1">
+            {inlineCorrection && (
+              <GrammarCard
+                original={inlineCorrection.original}
+                corrected={inlineCorrection.corrected}
+                explanation={inlineCorrection.explanation}
+                mode={theme.mode}
+              />
+            )}
+            {inlineVocabulary && inlineVocabulary.word && (
+              <VocabularyCard
+                word={inlineVocabulary.word}
+                partOfSpeech={inlineVocabulary.partOfSpeech}
+                mode={theme.mode}
+              />
+            )}
+            {inlineChallenge && (
+              <ChallengeCard
+                challengeType={inlineChallenge.type}
+                prompt={inlineChallenge.prompt}
+                hint={inlineChallenge.hint}
+                mode={theme.mode}
+              />
+            )}
             {toolParts.map((part, i) => {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const p = part as any;
@@ -619,6 +839,7 @@ const PersonaCard = ({
 export const VoiceInterface = () => {
   const {
     settings,
+    updateSettings,
     selectedPersona, setPersona,
     setConversations, conversations, currentConversationId,
     setCurrentConversationId, addConversation, touchConversation: touchConvStore,
@@ -643,6 +864,37 @@ export const VoiceInterface = () => {
   // ── Checkout success toast ────────────────────────────────────────────────
   const searchParams = useSearchParams();
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
+  const [hasLoadedConversations, setHasLoadedConversations] = useState(false);
+  const [showAssessment, setShowAssessment] = useState(false);
+  const [assessmentSubmitting, setAssessmentSubmitting] = useState(false);
+  const [hasAssessment, setHasAssessment] = useState(false);
+  const [scenarios, setScenarios] = useState<Array<{
+    scenarioId: string;
+    titleEn: string;
+    titleZh: string;
+    objective: string;
+  }>>([]);
+  const [recommendedScenarios, setRecommendedScenarios] = useState<Array<{
+    scenarioId: string;
+    titleEn: string;
+    titleZh: string;
+    objective: string;
+  }>>([]);
+  const [todayPlan, setTodayPlan] = useState<null | {
+    goal: string;
+    mainScenarioId: string;
+    focusCorrections: string[];
+    suggestedDurationMin: number;
+    mainScenario?: { titleEn: string; titleZh: string; objective: string } | null;
+  }>(null);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
+  const [scenarioLaunchingId, setScenarioLaunchingId] = useState<string | null>(null);
+  const [assessmentScores, setAssessmentScores] = useState({
+    fluency: 3,
+    accuracy: 3,
+    pronunciation: 3,
+    interaction: 3,
+  });
   useEffect(() => {
     if (searchParams.get('checkout') === 'success') {
       setShowCheckoutSuccess(true);
@@ -821,10 +1073,10 @@ export const VoiceInterface = () => {
     (async () => {
       try {
         const res = await fetch('/api/conversations');
-        if (!res.ok) return;
+        if (!res.ok) { setHasLoadedConversations(true); return; }
         const list: Conversation[] = await res.json();
         if (cancelled) return;
-        if (!Array.isArray(list) || list.length === 0) { setConversations([]); return; }
+        if (!Array.isArray(list) || list.length === 0) { setConversations([]); setHasLoadedConversations(true); return; }
         setConversations(list);
         const latest = list[0];
         setCurrentConversationId(latest.id);
@@ -836,14 +1088,121 @@ export const VoiceInterface = () => {
         if (cancelled) return;
         const msgs = await msgRes.json();
         if (Array.isArray(msgs)) setMessages(msgs.map(toUIMessage));
+        setHasLoadedConversations(true);
       } catch (e) {
         console.error('[load] conversations:', e);
         prevUserIdRef.current = undefined;
+        setHasLoadedConversations(true);
       }
     })();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, fetchUsage]);
+
+  // ── Load assessment/scenarios/daily plan from real APIs ───────────────────
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [assRes, scRes, planRes] = await Promise.all([
+          fetch('/api/assessment', { cache: 'no-store' }),
+          fetch('/api/scenarios', { cache: 'no-store' }),
+          fetch('/api/daily-plan', { cache: 'no-store' }),
+        ]);
+        if (cancelled) return;
+
+        if (assRes.ok) {
+          const a = await assRes.json() as { assessment: null | { fluency: number; accuracy: number; pronunciation: number; interaction: number } };
+          if (a.assessment) {
+            setHasAssessment(true);
+            setAssessmentScores({
+              fluency: a.assessment.fluency,
+              accuracy: a.assessment.accuracy,
+              pronunciation: a.assessment.pronunciation,
+              interaction: a.assessment.interaction,
+            });
+          } else {
+            setHasAssessment(false);
+          }
+        }
+
+        if (scRes.ok) {
+          const s = await scRes.json() as {
+            scenarios: Array<{ scenarioId: string; titleEn: string; titleZh: string; objective: string }>;
+            recommended: Array<{ scenarioId: string; titleEn: string; titleZh: string; objective: string }>;
+          };
+          setScenarios(s.scenarios ?? []);
+          setRecommendedScenarios(s.recommended ?? []);
+        }
+
+        if (planRes.ok) {
+          const p = await planRes.json() as {
+            plan?: {
+              goal: string;
+              mainScenarioId: string;
+              focusCorrections: string[];
+              suggestedDurationMin: number;
+              mainScenario?: { titleEn: string; titleZh: string; objective: string } | null;
+            };
+          };
+          if (p.plan) setTodayPlan(p.plan);
+        }
+      } catch {
+        // non-fatal
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // ── Show onboarding assessment for first-time users ───────────────────────
+  useEffect(() => {
+    if (!userId || !hasLoadedConversations) return;
+    if (!hasAssessment && conversations.length === 0) {
+      setShowAssessment(true);
+    }
+  }, [conversations.length, hasAssessment, hasLoadedConversations, userId]);
+
+  const completeAssessment = useCallback(async () => {
+    setAssessmentSubmitting(true);
+    const values = Object.values(assessmentScores);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const level =
+      avg < 2.0 ? 'A0' :
+      avg < 2.8 ? 'A1' :
+      avg < 3.6 ? 'A2' :
+      avg < 4.4 ? 'B1' : 'B2';
+    try {
+      const res = await fetch('/api/assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fluency: assessmentScores.fluency,
+          accuracy: assessmentScores.accuracy,
+          pronunciation: assessmentScores.pronunciation,
+          interaction: assessmentScores.interaction,
+          overallLevel: level,
+          completedAtMs: Date.now(),
+        }),
+      });
+      if (!res.ok) throw new Error('assessment save failed');
+      setHasAssessment(true);
+      setShowAssessment(false);
+      const planRes = await fetch('/api/daily-plan', { cache: 'no-store' });
+      if (planRes.ok) {
+        const p = await planRes.json() as { plan?: {
+          goal: string;
+          mainScenarioId: string;
+          focusCorrections: string[];
+          suggestedDurationMin: number;
+          mainScenario?: { titleEn: string; titleZh: string; objective: string } | null;
+        } };
+        if (p.plan) setTodayPlan(p.plan);
+      }
+    } finally {
+      setAssessmentSubmitting(false);
+    }
+  }, [assessmentScores]);
 
   // ── Select a conversation ──────────────────────────────────────────────────
   const handleSelectConversation = useCallback(async (conv: Conversation) => {
@@ -885,6 +1244,29 @@ export const VoiceInterface = () => {
   const handleMicClick = useCallback(() => { unlock(); stop(); startListening(inputLang); }, [unlock, stop, startListening, inputLang]);
   const handleReplay = useCallback((text: string) => { unlock(); speak(text, activeVoiceId); }, [unlock, speak, activeVoiceId]);
   const handleTextSend = useCallback((text: string) => { unlock(); handleSendRef.current(text); }, [unlock]);
+  const applyScenario = useCallback((scenarioId: string) => {
+    if (isLoading || limitReached || scenarioLaunchingId) return;
+    const source = [
+      ...(todayPlan?.mainScenario ? [{
+        scenarioId: todayPlan.mainScenarioId,
+        titleEn: todayPlan.mainScenario.titleEn,
+        titleZh: todayPlan.mainScenario.titleZh,
+        objective: todayPlan.mainScenario.objective,
+      }] : []),
+      ...recommendedScenarios,
+      ...scenarios,
+    ];
+    const picked = source.find(s => s.scenarioId === scenarioId);
+    if (!picked) return;
+    setScenarioLaunchingId(scenarioId);
+    setSelectedScenarioId(scenarioId);
+    updateSettings({
+      topic: `${picked.titleEn}: ${picked.objective}`,
+    });
+    const starter = `Let's practice this scenario: ${picked.titleEn}. Goal: ${picked.objective}. Please start the role-play naturally and guide me with short feedback.`;
+    handleSendRef.current(starter);
+    setTimeout(() => setScenarioLaunchingId(null), 450);
+  }, [isLoading, limitReached, recommendedScenarios, scenarioLaunchingId, scenarios, todayPlan, updateSettings]);
 
   // ── Persona switch ─────────────────────────────────────────────────────────
   const handlePersonaSwitch = useCallback((p: Persona) => {
@@ -898,6 +1280,17 @@ export const VoiceInterface = () => {
     setMessages([]);
     stop();
   }, [selectedPersona, setPersona, setCurrentConversationId, setMessages, stop]);
+
+  useEffect(() => {
+    if (!showPersonaSwitcher) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-persona-switcher="true"]')) return;
+      setShowPersonaSwitcher(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [showPersonaSwitcher]);
 
   // ── Status derived values ─────────────────────────────────────────────────
   const isActive = isListening || isSpeaking || isLoading;
@@ -940,6 +1333,10 @@ export const VoiceInterface = () => {
       </span>
     );
   })() : null;
+
+  const todayMain = todayPlan?.mainScenarioId
+    ? scenarios.find(s => s.scenarioId === todayPlan.mainScenarioId) ?? todayPlan.mainScenario
+    : null;
 
   const limitBanner = limitReached && usage ? (() => {
     const resetMs = usage.resetAt;
@@ -1045,6 +1442,71 @@ export const VoiceInterface = () => {
         </div>
       )}
 
+      {showAssessment && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,.62)' }}>
+          <div
+            className="w-full max-w-xl rounded-2xl border p-6"
+            style={{ background: theme.bgSidebar, borderColor: theme.bgSidebarBorder, boxShadow: '0 20px 80px rgba(0,0,0,.35)' }}
+          >
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold" style={{ color: theme.textPrimary }}>
+                Welcome! Quick speaking assessment
+              </h3>
+              <p className="text-sm mt-1" style={{ color: theme.textMuted }}>
+                This 60-second self-check helps us create your daily speaking plan. You can still free-chat anytime.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {([
+                ['fluency', 'How fluent are you when speaking continuously?'],
+                ['accuracy', 'How accurate is your grammar in conversation?'],
+                ['pronunciation', 'How clear is your pronunciation to listeners?'],
+                ['interaction', 'How well do you handle follow-up questions?'],
+              ] as const).map(([k, label]) => (
+                <div key={k} className="rounded-xl p-3" style={{ background: theme.bgInput, border: `1px solid ${theme.bgInputBorder}` }}>
+                  <p className="text-xs mb-2" style={{ color: theme.textPrimary }}>{label}</p>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map(v => (
+                      <button
+                        key={v}
+                        onClick={() => setAssessmentScores(prev => ({ ...prev, [k]: v }))}
+                        className="w-8 h-8 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                        style={{
+                          background: assessmentScores[k] === v ? '#c96442' : theme.bgMain,
+                          color: assessmentScores[k] === v ? '#fff' : theme.textMuted,
+                          border: `1px solid ${assessmentScores[k] === v ? '#c96442' : theme.bgInputBorder}`,
+                        }}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 mt-5">
+              <button
+                onClick={() => setShowAssessment(false)}
+                className="px-3 py-2 rounded-xl text-sm cursor-pointer"
+                style={{ background: theme.bgInput, color: theme.textMuted, border: `1px solid ${theme.bgInputBorder}` }}
+              >
+                Skip for now
+              </button>
+              <button
+                onClick={completeAssessment}
+                disabled={assessmentSubmitting}
+                className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-60"
+                style={{ background: '#c96442', color: '#fff' }}
+              >
+                {assessmentSubmitting ? 'Saving…' : 'Complete assessment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ DESKTOP ≥ lg ═══════════════════════════════════════════════════════ */}
       <div className="hidden lg:flex h-screen w-full overflow-hidden" style={{ background: theme.bgMain }}>
 
@@ -1126,10 +1588,10 @@ export const VoiceInterface = () => {
         </aside>
 
         {/* ── Main chat area ────────────────────────────────────────────────── */}
-        <main className="flex-1 flex flex-col overflow-hidden" style={{ background: theme.bgMain }}>
+        <main className="relative flex-1 flex flex-col overflow-hidden" style={{ background: theme.bgMain }}>
 
           {displayMessages.length === 0 ? (
-            <div className="avatar-strip flex-shrink-0 flex flex-col items-center gap-1 pt-5 pb-2 relative z-10"
+            <div className="avatar-strip flex-shrink-0 flex flex-col items-center gap-1 pt-5 pb-4 relative z-10"
               style={{ borderBottom: `1px solid ${theme.separatorColor}` }}>
               <div className="flex items-center gap-2 px-3.5 py-1 rounded-full border mb-1"
                 style={{ background: theme.bgStatusPill, borderColor: `${personaAccent}20` }}>
@@ -1166,7 +1628,7 @@ export const VoiceInterface = () => {
                 </div>
               </div>
               {/* Persona switcher */}
-              <div className="ml-auto flex items-center gap-2 relative">
+              <div className="ml-auto flex items-center gap-2 relative" data-persona-switcher="true">
                 <button
                   onClick={() => setShowPersonaSwitcher(s => !s)}
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium border transition-all cursor-pointer"
@@ -1178,9 +1640,13 @@ export const VoiceInterface = () => {
                   title="Switch character">
                   <Users size={11} />
                   <span>Switch</span>
+                  <ChevronDown
+                    size={11}
+                    style={{ transform: showPersonaSwitcher ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s ease' }}
+                  />
                 </button>
                 {showPersonaSwitcher && (
-                  <div className="absolute right-0 top-full mt-1.5 z-50 flex gap-2 p-2 rounded-2xl border shadow-xl"
+                  <div data-persona-switcher="true" className="absolute right-0 top-full mt-1.5 z-50 flex gap-2 p-2 rounded-2xl border shadow-xl"
                     style={{ background: theme.bgSidebar, borderColor: theme.bgSidebarBorder, animation: 'fadeUp .2s ease-out' }}>
                     {(['alex', 'trump'] as Persona[]).map(p => (
                       <button key={p} onClick={() => handlePersonaSwitch(p)}
@@ -1206,20 +1672,150 @@ export const VoiceInterface = () => {
             </div>
           )}
 
+          {displayMessages.length === 0 && (
+            <div className="absolute left-6 top-5 z-20 flex flex-col items-start gap-2">
+              <div className="relative" data-persona-switcher="true">
+                <button
+                  onClick={() => setShowPersonaSwitcher(s => !s)}
+                  className="group flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-medium border transition-all cursor-pointer"
+                  style={{
+                    borderColor: showPersonaSwitcher ? personaAccent + '60' : `${personaAccent}2e`,
+                    background: showPersonaSwitcher
+                      ? `linear-gradient(135deg, ${PERSONA_META[selectedPersona].accentBg}, ${theme.bgInput})`
+                      : `linear-gradient(135deg, ${theme.bgInput}, ${theme.bgCard})`,
+                    color: showPersonaSwitcher ? personaAccent : theme.textPrimary,
+                    boxShadow: showPersonaSwitcher
+                      ? `0 10px 26px ${personaAccent}22`
+                      : (theme.mode === 'dark' ? '0 8px 18px rgba(0,0,0,.28)' : '0 8px 18px rgba(0,0,0,.08)'),
+                    backdropFilter: 'blur(8px)',
+                  }}
+                  title="Choose partner"
+                >
+                  <Users size={13} />
+                  <span className="tracking-wide">Partner: {PERSONA_META[selectedPersona].name}</span>
+                  <div className="w-5 h-5 rounded-lg overflow-hidden border"
+                    style={{ background: theme.bgAvatarCard, borderColor: `${personaAccent}35` }}>
+                    {selectedPersona === 'trump'
+                      ? <TrumpAvatarCharacter size={20} />
+                      : <AvatarCharacter size={20} />}
+                  </div>
+                  <ChevronDown
+                    size={13}
+                    style={{ transform: showPersonaSwitcher ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s ease' }}
+                  />
+                </button>
+                {showPersonaSwitcher && (
+                  <div data-persona-switcher="true" className="absolute left-0 top-full mt-2 z-50 flex gap-2 p-2 rounded-2xl border shadow-xl"
+                    style={{
+                      background: theme.mode === 'dark'
+                        ? 'linear-gradient(160deg, rgba(31,31,35,.96), rgba(21,21,24,.94))'
+                        : 'linear-gradient(160deg, rgba(255,255,255,.97), rgba(250,249,245,.95))',
+                      borderColor: theme.bgSidebarBorder,
+                      animation: 'fadeUp .2s ease-out',
+                      backdropFilter: 'blur(12px)',
+                    }}>
+                    {(['alex', 'trump'] as Persona[]).map(p => (
+                      <button key={p} onClick={() => handlePersonaSwitch(p)}
+                        className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border transition-all cursor-pointer"
+                        style={{
+                          borderColor: selectedPersona === p ? PERSONA_META[p].accent + '66' : theme.bgInputBorder,
+                          background: selectedPersona === p
+                            ? `linear-gradient(145deg, ${PERSONA_META[p].accentBg}, ${theme.bgCard})`
+                            : theme.bgMain,
+                          color: selectedPersona === p ? PERSONA_META[p].accent : theme.textMuted,
+                          boxShadow: selectedPersona === p ? `0 8px 20px ${PERSONA_META[p].accent}22` : 'none',
+                        }}>
+                        <div className="w-10 h-10 rounded-xl overflow-hidden"
+                          style={{ background: theme.bgAvatarCard }}>
+                          {p === 'trump'
+                            ? <TrumpAvatarCharacter size={40} />
+                            : <AvatarCharacter size={40} />}
+                        </div>
+                        <span className="text-[10px] font-semibold">{PERSONA_META[p].name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!hasAssessment && (
+                <button
+                  onClick={() => setShowAssessment(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.bgInput}, ${theme.bgCard})`,
+                    color: theme.textMuted,
+                    border: `1px solid ${theme.bgInputBorder}`,
+                    boxShadow: theme.mode === 'dark' ? '0 6px 14px rgba(0,0,0,.24)' : '0 6px 14px rgba(0,0,0,.06)',
+                  }}
+                >
+                  Start initial assessment
+                </button>
+              )}
+            </div>
+          )}
+
           <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent` }}>
             {displayMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center gap-6">
-                <div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>Choose who you&apos;re talking to</p>
-                  <p className="text-xs" style={{ color: theme.textMuted }}>Your conversation partner will shape the whole experience</p>
-                </div>
-                <div className="flex gap-4">
-                  {(['alex', 'trump'] as Persona[]).map(p => (
-                    <PersonaCard key={p} persona={p} selected={selectedPersona === p} onSelect={() => setPersona(p)} />
-                  ))}
-                </div>
-                <p className="text-xs" style={{ color: theme.textDimmer }}>Click the mic or type below to start</p>
+              <div className="min-h-full flex items-center justify-center py-6">
+                <section className="w-full max-w-3xl flex flex-col gap-3">
+                  {todayPlan && (
+                    <div className="rounded-2xl p-4 border text-left"
+                      style={{ background: theme.bgCard, borderColor: theme.bgCardBorder }}>
+                      <p className="text-xs font-semibold mb-1" style={{ color: theme.accentText }}>Today&apos;s plan</p>
+                      <p className="text-sm font-medium" style={{ color: theme.textPrimary }}>{todayPlan.goal}</p>
+                      {todayMain && (
+                        <p className="text-xs mt-1.5" style={{ color: theme.textMuted }}>
+                          Main scenario: {todayMain.titleEn} ({todayMain.titleZh})
+                        </p>
+                      )}
+                      <p className="text-xs mt-1" style={{ color: theme.textDimmer }}>
+                        Suggested duration: {todayPlan.suggestedDurationMin} min
+                      </p>
+                      {todayPlan.focusCorrections?.length ? (
+                        <p className="text-xs mt-1" style={{ color: theme.textDimmer }}>
+                          Focus: {todayPlan.focusCorrections.join(' · ')}
+                        </p>
+                      ) : null}
+                      {todayPlan.mainScenarioId && (
+                        <button
+                          onClick={() => applyScenario(todayPlan.mainScenarioId)}
+                        disabled={!!scenarioLaunchingId || isLoading || limitReached}
+                        className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                          style={{ background: '#c96442', color: '#fff' }}
+                        >
+                        {scenarioLaunchingId === todayPlan.mainScenarioId ? 'Launching…' : 'Start this scenario'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {recommendedScenarios.length > 0 && (
+                    <div className="rounded-2xl p-4 border"
+                      style={{ background: theme.bgCard, borderColor: theme.bgCardBorder }}>
+                      <p className="text-xs font-semibold mb-2 text-left" style={{ color: theme.textMuted }}>Recommended scenarios</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {recommendedScenarios.slice(0, 4).map(s => (
+                          <button
+                            key={s.scenarioId}
+                            onClick={() => applyScenario(s.scenarioId)}
+                            disabled={!!scenarioLaunchingId || isLoading || limitReached}
+                            className="p-2.5 rounded-xl border text-left cursor-pointer transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                            style={{
+                              background: selectedScenarioId === s.scenarioId ? theme.bgCard : theme.bgInput,
+                              borderColor: selectedScenarioId === s.scenarioId ? '#c96442' : theme.bgInputBorder,
+                            }}>
+                            <p className="text-xs font-semibold" style={{ color: theme.textPrimary }}>{s.titleEn}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: theme.textDimmer }}>{s.titleZh}</p>
+                            {selectedScenarioId === s.scenarioId && (
+                              <p className="text-[10px] mt-1" style={{ color: '#c96442' }}>Selected</p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
               </div>
             ) : displayMessages.map(m => (
               <ChatBubble key={m.id} message={m}
@@ -1354,7 +1950,14 @@ export const VoiceInterface = () => {
                   color: showPersonaSwitcher ? personaAccent : theme.textMuted,
                 }}
                 title="Switch character">
-                <Users size={13} />
+                <div className="relative">
+                  <Users size={13} />
+                  <ChevronDown
+                    size={8}
+                    className="absolute -bottom-1 -right-1"
+                    style={{ transform: showPersonaSwitcher ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s ease' }}
+                  />
+                </div>
               </button>
               <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
             </div>
@@ -1363,7 +1966,7 @@ export const VoiceInterface = () => {
 
         {/* Mobile persona switcher overlay */}
         {showPersonaSwitcher && (
-          <div className="relative z-20 flex justify-center gap-3 px-4 pt-2 pb-1"
+          <div data-persona-switcher="true" className="relative z-20 flex justify-center gap-3 px-4 pt-2 pb-1"
             style={{ animation: 'fadeUp .2s ease-out' }}>
             {(['alex', 'trump'] as Persona[]).map(p => (
               <button key={p} onClick={() => handlePersonaSwitch(p)}
@@ -1385,16 +1988,69 @@ export const VoiceInterface = () => {
         <div ref={mobileMsgRef} className="flex-1 relative z-10 overflow-y-auto px-4 pb-2 space-y-3.5"
           style={{ scrollbarWidth: 'none' }}>
           {displayMessages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center gap-5">
-              <div>
+            <div className="h-full flex flex-col items-center justify-start text-center gap-4 pt-2 pb-5">
+              {todayPlan && (
+                <div className="w-full rounded-2xl p-3 border text-left"
+                  style={{ background: theme.bgCard, borderColor: theme.bgCardBorder }}>
+                  <p className="text-[11px] font-semibold" style={{ color: theme.accentText }}>Today&apos;s plan</p>
+                  <p className="text-xs mt-1" style={{ color: theme.textPrimary }}>{todayPlan.goal}</p>
+                  {todayMain && (
+                    <p className="text-[10px] mt-1" style={{ color: theme.textMuted }}>
+                      {todayMain.titleEn} ({todayMain.titleZh})
+                    </p>
+                  )}
+                  {todayPlan.mainScenarioId && (
+                    <button
+                      onClick={() => applyScenario(todayPlan.mainScenarioId)}
+                      disabled={!!scenarioLaunchingId || isLoading || limitReached}
+                      className="mt-2 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{ background: '#c96442', color: '#fff' }}
+                    >
+                      {scenarioLaunchingId === todayPlan.mainScenarioId ? 'Launching…' : 'Start this scenario'}
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="pt-1">
                 <p className="text-sm font-semibold mb-1" style={{ color: theme.textPrimary }}>Choose your partner</p>
                 <p className="text-[11px]" style={{ color: theme.textMuted }}>Tap a character to select</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full justify-center">
                 {(['alex', 'trump'] as Persona[]).map(p => (
                   <PersonaCard key={p} persona={p} selected={selectedPersona === p} onSelect={() => setPersona(p)} />
                 ))}
               </div>
+              {recommendedScenarios.length > 0 && (
+                <div className="w-full flex flex-col gap-2">
+                  <p className="text-[11px] text-left font-semibold" style={{ color: theme.textMuted }}>Recommended scenarios</p>
+                  {recommendedScenarios.slice(0, 2).map(s => (
+                    <button
+                      key={s.scenarioId}
+                      onClick={() => applyScenario(s.scenarioId)}
+                      disabled={!!scenarioLaunchingId || isLoading || limitReached}
+                      className="p-2.5 rounded-xl border text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      style={{
+                        background: selectedScenarioId === s.scenarioId ? theme.bgCard : theme.bgInput,
+                        borderColor: selectedScenarioId === s.scenarioId ? '#c96442' : theme.bgInputBorder,
+                      }}>
+                      <p className="text-xs font-semibold" style={{ color: theme.textPrimary }}>{s.titleEn}</p>
+                      <p className="text-[10px]" style={{ color: theme.textDimmer }}>{s.titleZh}</p>
+                      {selectedScenarioId === s.scenarioId && (
+                        <p className="text-[10px] mt-1" style={{ color: '#c96442' }}>Selected</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!hasAssessment && (
+                <button
+                  onClick={() => setShowAssessment(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium cursor-pointer"
+                  style={{ background: theme.bgInput, color: theme.textMuted, border: `1px solid ${theme.bgInputBorder}` }}
+                >
+                  Start initial assessment
+                </button>
+              )}
             </div>
           ) : displayMessages.map(m => (
             <ChatBubble key={m.id} message={m}

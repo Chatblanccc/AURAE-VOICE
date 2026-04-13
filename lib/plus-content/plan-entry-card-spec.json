@@ -1,0 +1,38 @@
+{
+  "component": "TodayPlanCard",
+  "placement": "voice-assistant-home-top",
+  "actions": [
+    {
+      "id": "start_plan",
+      "labelEn": "Start today's plan",
+      "labelZh": "开始今日计划",
+      "type": "primary"
+    },
+    {
+      "id": "shuffle_plan",
+      "labelEn": "Swap scenario",
+      "labelZh": "换一题",
+      "type": "secondary"
+    },
+    {
+      "id": "start_free_chat",
+      "labelEn": "Free chat",
+      "labelZh": "自由闲聊",
+      "type": "ghost"
+    }
+  ],
+  "fields": [
+    { "key": "dateLabel", "required": true },
+    { "key": "goal", "required": true },
+    { "key": "mainScenarioTitle", "required": true },
+    { "key": "estimatedDuration", "required": true },
+    { "key": "focusCorrections", "required": false },
+    { "key": "levelBadge", "required": true }
+  ],
+  "microcopy": {
+    "freeChatHintEn": "Not in study mode? Start a free chat anytime.",
+    "freeChatHintZh": "想轻松聊聊也可以，随时进入自由闲聊。",
+    "afterFreeChatNudgeEn": "Nice chat. Want to continue with today's plan?",
+    "afterFreeChatNudgeZh": "聊得不错，要不要继续完成今日计划？"
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "version": "1.0.0",
+  "policy": "recommend-first-user-choice-always-available",
+  "inputs": [
+    "userLevel",
+    "last7dScores",
+    "recentScenarioIds",
+    "errorHotspots",
+    "sessionStreakDays",
+    "userPreferenceTags"
+  ],
+  "outputSchema": {
+    "date": "YYYY-MM-DD",
+    "goal": "string",
+    "mainScenarioId": "string",
+    "backupScenarioIds": ["string", "string"],
+    "focusCorrections": ["string", "string"],
+    "suggestedDurationMin": 15,
+    "reflectionQuestion": "string",
+    "allowFreeChat": true
+  },
+  "rules": [
+    "Do not repeat same category two days in a row unless user requests.",
+    "If fluency and accuracy both improved for 3 days, increase complexity one step.",
+    "If score drops for 2 days, reduce complexity and add confidence-first scenario.",
+    "If pronunciation is weakest, choose scenario with short controlled utterances.",
+    "Always keep one social or daily-life backup scenario for low-pressure practice."
+  ],
+  "fallbacks": {
+    "noHistory": "Use onboarding level and select one beginner-safe scenario.",
+    "highFatigueSignal": "Set suggestedDurationMin to 8 and use low-pressure scenario.",
+    "userExplicitFreeChat": "Skip plan generation and log free chat as optional training."
+  }
+}

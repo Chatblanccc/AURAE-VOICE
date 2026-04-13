@@ -257,14 +257,14 @@
             "Yes. Your conversations are encrypted in transit and at rest. We do not sell or share your data with third parties. You can delete all your conversation history from your account settings at any time.",
         },
         {
-          question: "Can I cancel my Pro subscription anytime?",
+          question: "Can I cancel my paid subscription anytime?",
           answer:
-            "Absolutely. Cancel with a single click from your account settings — no questions asked, no cancellation fee. You keep Pro access until the end of your current billing period. We also offer a 30-day money-back guarantee.",
+            "Absolutely. Plus and Pro can both be cancelled with one click from account settings — no cancellation fee. Your paid access remains active until the current billing period ends. We also offer a 30-day money-back guarantee.",
         },
         {
           question: "How many practice scenarios are there?",
           answer:
-            "The Free plan includes 2 scenarios. Pro unlocks all 40+ current scenarios, and we add new ones every week based on learner requests. Popular categories include business English, travel, social situations, and academic English.",
+            "The Free plan includes 2 scenarios. Plus and Pro unlock 40+ current scenarios, and we add new ones every week based on learner requests. Popular categories include business English, travel, social situations, and academic English.",
         },
       ],
     },
@@ -548,14 +548,14 @@
             '是的。你的对话在传输和存储过程中均经过加密。我们不会向第三方出售或共享你的数据。你可以随时在账户设置中删除所有对话记录。',
         },
         {
-          question: '我可以随时取消专业版订阅吗？',
+          question: '我可以随时取消付费订阅吗？',
           answer:
-            '完全可以。在账户设置中一键取消，无需说明原因，无取消费用。你的专业版权限将保留至当前计费周期结束。我们还提供 30 天无理由退款保障。',
+            '完全可以。进阶版和专业版都支持在账户设置中一键取消，无需说明原因，也无取消费用。付费权限会保留至当前计费周期结束。我们还提供 30 天保障。',
         },
         {
           question: '练习场景有多少个？',
           answer:
-            '免费版包含 2 个场景。专业版解锁目前所有 40+ 个场景，并根据学员需求每周新增。热门类别包括商务英语、旅行、社交场合和学术英语。',
+            '免费版包含 2 个场景。进阶版和专业版解锁目前所有 40+ 个场景，并根据学员需求每周新增。热门类别包括商务英语、旅行、社交场合和学术英语。',
         },
       ],
     },

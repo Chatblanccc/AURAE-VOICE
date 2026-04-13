@@ -1,0 +1,67 @@
+{
+  "timezone": "UTC",
+  "releasePolicy": {
+    "cadence": "weekly",
+    "dayOfWeek": "Wednesday",
+    "itemsPerWeek": 2,
+    "qualityGateRequired": true
+  },
+  "next8Weeks": [
+    {
+      "week": "2026-W16",
+      "theme": "Travel Confidence",
+      "scenarioIds": ["travel.customs.declaration_001", "travel.lost_luggage_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W17",
+      "theme": "Workplace Essentials",
+      "scenarioIds": ["workplace.deadline.negotiation_001", "workplace.feedback.asking_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W18",
+      "theme": "Social Fluency",
+      "scenarioIds": ["social_disagreement_polite_001", "social_online_chat_to_call_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W19",
+      "theme": "Academic Speaking",
+      "scenarioIds": ["academic.office_hours_001", "academic.group_project_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W20",
+      "theme": "Service Interactions",
+      "scenarioIds": ["services.bank_account_help_001", "services.internet_provider_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W21",
+      "theme": "Healthcare Safety",
+      "scenarioIds": ["healthcare.clinic.checkup_001", "healthcare.mental_health_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W22",
+      "theme": "Emergency Communication",
+      "scenarioIds": ["emergency.fire_evacuation_001", "emergency.accident_witness_001"],
+      "owner": "content-team",
+      "status": "planned"
+    },
+    {
+      "week": "2026-W23",
+      "theme": "Career Growth",
+      "scenarioIds": ["workplace.client_call_001", "workplace.conflict_resolution_001"],
+      "owner": "content-team",
+      "status": "planned"
+    }
+  ]
+}

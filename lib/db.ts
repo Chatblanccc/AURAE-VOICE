@@ -99,6 +99,36 @@ export async function ensureSchema() {
 
   try { await sql`CREATE INDEX IF NOT EXISTS usage_user_time_idx ON user_usage(user_id, created_at DESC)`; } catch {}
 
+  // ── Onboarding assessment & daily plans ──────────────────────────────────
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_assessments (
+        user_id         TEXT PRIMARY KEY,
+        fluency         INT NOT NULL,
+        accuracy        INT NOT NULL,
+        pronunciation   INT NOT NULL,
+        interaction     INT NOT NULL,
+        overall_level   TEXT NOT NULL,
+        completed_at_ms BIGINT NOT NULL,
+        updated_at      TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_assessments table:', String(e)); }
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_daily_plans (
+        user_id      TEXT NOT NULL,
+        date_key     TEXT NOT NULL,
+        plan_json    JSONB NOT NULL,
+        created_at   TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, date_key)
+      )
+    `;
+  } catch (e) { console.error('[schema] user_daily_plans table:', String(e)); }
+
+  try { await sql`CREATE INDEX IF NOT EXISTS daily_plans_user_idx ON user_daily_plans(user_id, created_at DESC)`; } catch {}
+
   schemaReady = true;
 }
 
@@ -446,5 +476,124 @@ export async function getStripeSubscriptionId(userId: string): Promise<string | 
   } catch (e) {
     console.error('[db] getStripeSubscriptionId:', String(e));
     return null;
+  }
+}
+
+// ── Onboarding assessment & daily plan helpers ───────────────────────────────
+
+export interface UserAssessment {
+  userId: string;
+  fluency: number;
+  accuracy: number;
+  pronunciation: number;
+  interaction: number;
+  overallLevel: string;
+  completedAtMs: number;
+}
+
+export async function getUserAssessment(userId: string): Promise<UserAssessment | null> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT user_id, fluency, accuracy, pronunciation, interaction, overall_level, completed_at_ms
+      FROM user_assessments
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
+    const r = rows[0];
+    if (!r) return null;
+    return {
+      userId: r.user_id as string,
+      fluency: Number(r.fluency),
+      accuracy: Number(r.accuracy),
+      pronunciation: Number(r.pronunciation),
+      interaction: Number(r.interaction),
+      overallLevel: r.overall_level as string,
+      completedAtMs: Number(r.completed_at_ms),
+    };
+  } catch (e) {
+    console.error('[db] getUserAssessment:', String(e));
+    return null;
+  }
+}
+
+export async function upsertUserAssessment(input: UserAssessment): Promise<void> {
+  const sql = getDb();
+  try {
+    await sql`
+      INSERT INTO user_assessments (
+        user_id, fluency, accuracy, pronunciation, interaction, overall_level, completed_at_ms
+      ) VALUES (
+        ${input.userId},
+        ${input.fluency},
+        ${input.accuracy},
+        ${input.pronunciation},
+        ${input.interaction},
+        ${input.overallLevel},
+        ${input.completedAtMs}
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        fluency         = EXCLUDED.fluency,
+        accuracy        = EXCLUDED.accuracy,
+        pronunciation   = EXCLUDED.pronunciation,
+        interaction     = EXCLUDED.interaction,
+        overall_level   = EXCLUDED.overall_level,
+        completed_at_ms = EXCLUDED.completed_at_ms,
+        updated_at      = NOW()
+    `;
+  } catch (e) {
+    console.error('[db] upsertUserAssessment:', String(e));
+    throw e;
+  }
+}
+
+export async function getDailyPlan(userId: string, dateKey: string): Promise<unknown | null> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT plan_json
+      FROM user_daily_plans
+      WHERE user_id = ${userId} AND date_key = ${dateKey}
+      LIMIT 1
+    `;
+    return (rows[0]?.plan_json as unknown) ?? null;
+  } catch (e) {
+    console.error('[db] getDailyPlan:', String(e));
+    return null;
+  }
+}
+
+export async function upsertDailyPlan(userId: string, dateKey: string, plan: unknown): Promise<void> {
+  const sql = getDb();
+  try {
+    await sql`
+      INSERT INTO user_daily_plans (user_id, date_key, plan_json)
+      VALUES (${userId}, ${dateKey}, ${JSON.stringify(plan)}::jsonb)
+      ON CONFLICT (user_id, date_key) DO UPDATE SET
+        plan_json = EXCLUDED.plan_json,
+        created_at = NOW()
+    `;
+  } catch (e) {
+    console.error('[db] upsertDailyPlan:', String(e));
+    throw e;
+  }
+}
+
+export async function getRecentDailyMainScenarioIds(userId: string, limit = 3): Promise<string[]> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT plan_json
+      FROM user_daily_plans
+      WHERE user_id = ${userId}
+      ORDER BY created_at DESC
+      LIMIT ${limit}
+    `;
+    return rows
+      .map(r => (r.plan_json as { mainScenarioId?: string } | null)?.mainScenarioId)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+  } catch (e) {
+    console.error('[db] getRecentDailyMainScenarioIds:', String(e));
+    return [];
   }
 }

@@ -1,0 +1,71 @@
+{
+  "version": "1.0.0",
+  "durationMinutes": 10,
+  "goal": "Estimate initial speaking level and prioritize coaching dimensions.",
+  "dimensions": [
+    "fluency",
+    "accuracy",
+    "pronunciation",
+    "interaction"
+  ],
+  "tasks": [
+    {
+      "taskId": "intro_90s",
+      "name": "Self Introduction",
+      "timeSeconds": 90,
+      "promptEn": "Introduce yourself and describe your daily routine.",
+      "promptZh": "请用英语做自我介绍，并描述你的日常作息。",
+      "targetDimensions": ["fluency", "accuracy"]
+    },
+    {
+      "taskId": "scenario_response",
+      "name": "Situation Response",
+      "timeSeconds": 150,
+      "promptEn": "You are late for a meeting. Explain the reason and propose a solution.",
+      "promptZh": "你开会迟到了，请说明原因并提出解决方案。",
+      "targetDimensions": ["accuracy", "interaction"]
+    },
+    {
+      "taskId": "followup_qa",
+      "name": "Follow-up Q&A",
+      "timeSeconds": 180,
+      "promptEn": "Answer three follow-up questions from the AI tutor.",
+      "promptZh": "回答 AI 家教提出的三个追问。",
+      "targetDimensions": ["interaction", "fluency"]
+    },
+    {
+      "taskId": "free_expression",
+      "name": "Free Opinion",
+      "timeSeconds": 180,
+      "promptEn": "Share your opinion on online learning and support your reasons.",
+      "promptZh": "请表达你对在线学习的看法，并给出理由。",
+      "targetDimensions": ["fluency", "pronunciation"]
+    }
+  ],
+  "scoringRubric": {
+    "scale": "0-100",
+    "weights": {
+      "fluency": 0.3,
+      "accuracy": 0.3,
+      "pronunciation": 0.2,
+      "interaction": 0.2
+    },
+    "levelBands": [
+      { "level": "A0", "min": 0, "max": 29 },
+      { "level": "A1", "min": 30, "max": 44 },
+      { "level": "A2", "min": 45, "max": 59 },
+      { "level": "B1", "min": 60, "max": 79 },
+      { "level": "B2", "min": 80, "max": 100 }
+    ]
+  },
+  "output": {
+    "requiredFields": [
+      "userId",
+      "completedAt",
+      "scores",
+      "overallLevel",
+      "priorityWeakness",
+      "recommendedFirstScenarioIds"
+    ]
+  }
+}
