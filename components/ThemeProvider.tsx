@@ -10,6 +10,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
+    document.documentElement.classList.toggle('dark', mode === 'dark');
   }, [mode]);
 
   return <>{children}</>;

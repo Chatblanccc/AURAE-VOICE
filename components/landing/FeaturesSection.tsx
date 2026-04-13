@@ -47,16 +47,16 @@ export function FeaturesSection() {
   const tx = t[lang].features;
 
   return (
-    <section id="features" className="py-28 px-6" style={{ background: '#f5f4ed' }}>
+    <section id="features" className="py-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: '#c96442', letterSpacing: '0.12em' }}>
+          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-terracotta)', letterSpacing: '0.12em' }}>
             {tx.overline}
           </p>
-          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: '#141413', lineHeight: '1.20' }}>
+          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: 'var(--lp-text)', lineHeight: '1.20' }}>
             {tx.heading}
           </h2>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: '#5e5d59', lineHeight: '1.60' }}>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--lp-text-muted)', lineHeight: '1.60' }}>
             {tx.subheading}
           </p>
         </div>
@@ -66,23 +66,23 @@ export function FeaturesSection() {
             <div
               key={i}
               className="rounded-2xl p-7 transition-all duration-200 cursor-default"
-              style={{ background: '#faf9f5', border: '1px solid #f0eee6', boxShadow: 'rgba(0,0,0,0.04) 0px 4px 24px' }}
+              style={{ background: 'var(--lp-bg-card)', border: '1px solid var(--lp-border)', boxShadow: 'var(--lp-shadow-card) 0px 4px 24px' }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px #d1cfc5, rgba(0,0,0,0.08) 0px 8px 32px';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px var(--lp-ring-warm), var(--lp-shadow-card) 0px 8px 32px';
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.boxShadow = 'rgba(0,0,0,0.04) 0px 4px 24px';
+                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--lp-shadow-card) 0px 4px 24px';
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
               }}
             >
               <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-5" style={{ background: 'rgba(201,100,66,0.08)' }}>
                 {featureIcons[i]}
               </div>
-              <h3 className="lp-serif text-xl font-medium mb-3" style={{ color: '#141413', lineHeight: '1.30' }}>
+              <h3 className="lp-serif text-xl font-medium mb-3" style={{ color: 'var(--lp-text)', lineHeight: '1.30' }}>
                 {feature.title}
               </h3>
-              <p className="text-sm" style={{ color: '#5e5d59', lineHeight: '1.60' }}>
+              <p className="text-sm" style={{ color: 'var(--lp-text-muted)', lineHeight: '1.60' }}>
                 {feature.description}
               </p>
             </div>

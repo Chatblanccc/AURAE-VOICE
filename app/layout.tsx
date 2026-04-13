@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SessionProvider } from "next-auth/react";
@@ -24,10 +25,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
       <head>
         {/* Explicit tab icon — some browsers still default to /favicon.ico (see next.config redirects) */}
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
+        <Script id="aurae-theme-init" strategy="beforeInteractive">
+          {`(function(){try{var raw=localStorage.getItem('aurae-theme');if(!raw)return;var d=JSON.parse(raw);var m=d&&d.state&&d.state.mode;if(m==='dark'||m==='light'){document.documentElement.setAttribute('data-theme',m);document.documentElement.classList.toggle('dark',m==='dark');}}catch(e){}})();`}
+        </Script>
       </head>
       <body className="min-h-full flex flex-col font-sans">
         <SessionProvider>

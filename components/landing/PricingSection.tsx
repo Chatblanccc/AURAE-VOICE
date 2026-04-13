@@ -117,39 +117,39 @@ export function PricingSection() {
   const signInForChatHref = `/sign-in?callbackUrl=${encodeURIComponent('/chat')}`;
 
   return (
-    <section id="pricing" className="py-28 px-6" style={{ background: '#141413' }}>
+    <section id="pricing" className="py-28 px-6" style={{ background: 'var(--lp-bg-band)' }}>
       {showLoginModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,.65)' }}
+          style={{ background: 'var(--lp-login-overlay)' }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="pricing-login-modal-title"
         >
           <div
             className="relative w-full max-w-md rounded-2xl p-8 shadow-2xl border"
-            style={{ background: '#1e1e1c', borderColor: '#3d3d3a' }}
+            style={{ background: 'var(--lp-modal-bg)', borderColor: 'var(--lp-modal-border)' }}
           >
             <button
               type="button"
               onClick={() => setShowLoginModal(false)}
               className="absolute top-4 right-4 w-8 h-8 rounded-lg flex items-center justify-center text-lg leading-none cursor-pointer hover:opacity-80"
-              style={{ color: '#87867f' }}
+              style={{ color: 'var(--lp-modal-muted)' }}
               aria-label={tx.loginModalClose}
             >
               ×
             </button>
-            <h3 id="pricing-login-modal-title" className="lp-serif text-xl font-medium pr-8 mb-3" style={{ color: '#faf9f5' }}>
+            <h3 id="pricing-login-modal-title" className="lp-serif text-xl font-medium pr-8 mb-3" style={{ color: 'var(--lp-modal-text)' }}>
               {tx.loginModalTitle}
             </h3>
-            <p className="text-sm mb-6 leading-relaxed" style={{ color: '#b0aea5' }}>
+            <p className="text-sm mb-6 leading-relaxed" style={{ color: 'var(--lp-modal-muted)' }}>
               {tx.loginModalBody}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href={signInForPricingHref}
                 className="flex-1 flex items-center justify-center px-5 py-3 rounded-xl text-sm font-semibold transition-all cursor-pointer"
-                style={{ background: '#c96442', color: '#faf9f5' }}
+                style={{ background: 'var(--lp-terracotta)', color: '#faf9f5' }}
               >
                 {tx.loginModalCta}
               </Link>
@@ -157,7 +157,7 @@ export function PricingSection() {
                 type="button"
                 onClick={() => setShowLoginModal(false)}
                 className="flex-1 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer border"
-                style={{ background: 'transparent', color: '#87867f', borderColor: '#4d4c48' }}
+                style={{ background: 'transparent', color: 'var(--lp-modal-muted)', borderColor: 'var(--lp-modal-border)' }}
               >
                 {tx.loginModalClose}
               </button>
@@ -168,13 +168,13 @@ export function PricingSection() {
 
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: '#d97757', letterSpacing: '0.12em' }}>
+          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-coral)', letterSpacing: '0.12em' }}>
             {tx.overline}
           </p>
-          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: '#faf9f5', lineHeight: '1.20' }}>
+          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: 'var(--lp-text-on-dark)', lineHeight: '1.20' }}>
             {tx.heading}
           </h2>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: '#87867f', lineHeight: '1.60' }}>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--lp-text-on-dark-muted)', lineHeight: '1.60' }}>
             {tx.subheading}
           </p>
         </div>
@@ -210,36 +210,36 @@ export function PricingSection() {
                 key={i}
                 className="relative rounded-2xl p-8 flex flex-col gap-6"
                 style={{
-                  background: isComingSoon ? '#1e1e1c' : isRec ? '#faf9f5' : '#30302e',
-                  border: isComingSoon ? '1px solid #2d2d2b' : isRec ? '1px solid #f0eee6' : '1px solid #3d3d3a',
-                  boxShadow: isRec ? '0 0 0 1px #c96442, rgba(201,100,66,0.20) 0px 20px 60px' : 'none',
+                  background: isComingSoon ? 'var(--lp-bg-card-soon)' : isRec ? 'var(--lp-elevated-bg)' : 'var(--lp-bg-card-muted)',
+                  border: isComingSoon ? '1px solid var(--lp-border-soon)' : isRec ? '1px solid var(--lp-elevated-border)' : '1px solid var(--lp-border-soft)',
+                  boxShadow: isRec ? '0 0 0 1px var(--lp-terracotta), rgba(201,100,66,0.20) 0px 20px 60px' : 'none',
                   opacity: isComingSoon ? 0.75 : 1,
                 }}
               >
                 {isRec && !isComingSoon && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold" style={{ background: '#c96442', color: '#faf9f5' }}>
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold" style={{ background: 'var(--lp-terracotta)', color: 'var(--lp-text-on-dark)' }}>
                     {tx.mostPopular}
                   </div>
                 )}
                 {isComingSoon && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold" style={{ background: '#3d3d3a', color: '#87867f', border: '1px solid #4d4c48' }}>
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-semibold" style={{ background: 'var(--lp-bg-card-muted)', color: 'var(--lp-text-subtle)', border: '1px solid var(--lp-border-soft)' }}>
                     {lang === 'zh' ? '即将推出' : 'Coming Soon'}
                   </div>
                 )}
 
                 <div>
-                  <p className="text-sm font-semibold uppercase tracking-wide mb-2" style={{ color: isComingSoon ? '#5e5d59' : isRec ? '#c96442' : '#d97757' }}>
+                  <p className="text-sm font-semibold uppercase tracking-wide mb-2" style={{ color: isComingSoon ? 'var(--lp-text-muted)' : isRec ? 'var(--lp-terracotta)' : 'var(--lp-coral)' }}>
                     {plan.name}
                   </p>
                   <div className="flex items-baseline gap-1.5 mb-2">
-                    <span className="lp-serif text-4xl font-medium" style={{ color: isComingSoon ? '#5e5d59' : isRec ? '#141413' : '#faf9f5' }}>
+                    <span className="lp-serif text-4xl font-medium" style={{ color: isComingSoon ? 'var(--lp-text-muted)' : isRec ? 'var(--lp-elevated-text)' : 'var(--lp-text-on-dark)' }}>
                       {plan.price}
                     </span>
-                    <span className="text-sm" style={{ color: isComingSoon ? '#3d3d3a' : isRec ? '#87867f' : '#5e5d59' }}>
+                    <span className="text-sm" style={{ color: isComingSoon ? 'var(--lp-border-soft)' : isRec ? 'var(--lp-elevated-text-subtle)' : 'var(--lp-text-on-dark-muted)' }}>
                       {plan.period}
                     </span>
                   </div>
-                  <p className="text-sm" style={{ color: isComingSoon ? '#5e5d59' : isRec ? '#5e5d59' : '#87867f', lineHeight: '1.60' }}>
+                  <p className="text-sm" style={{ color: isComingSoon ? 'var(--lp-text-muted)' : isRec ? 'var(--lp-elevated-text-muted)' : 'var(--lp-text-on-dark-muted)', lineHeight: '1.60' }}>
                     {plan.description}
                   </p>
                 </div>
@@ -249,9 +249,9 @@ export function PricingSection() {
                     <li key={j} className="flex items-start gap-2.5">
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0 mt-0.5" aria-hidden="true">
                         <circle cx="8" cy="8" r="7" fill={isComingSoon ? 'rgba(100,100,96,0.10)' : isRec ? 'rgba(201,100,66,0.10)' : 'rgba(201,100,66,0.15)'}/>
-                        <path d="M5 8l2 2 4-4" stroke={isComingSoon ? '#5e5d59' : '#c96442'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M5 8l2 2 4-4" stroke={isComingSoon ? 'var(--lp-text-muted)' : 'var(--lp-terracotta)'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      <span className="text-sm" style={{ color: isComingSoon ? '#5e5d59' : isRec ? '#4d4c48' : '#b0aea5', lineHeight: '1.50' }}>
+                      <span className="text-sm" style={{ color: isComingSoon ? 'var(--lp-text-muted)' : isRec ? 'var(--lp-elevated-charcoal)' : 'var(--lp-warm-silver)', lineHeight: '1.50' }}>
                         {feature}
                       </span>
                     </li>
@@ -261,7 +261,7 @@ export function PricingSection() {
                 {isComingSoon ? (
                   <div
                     className="mt-auto flex items-center justify-center px-5 py-3 rounded-xl text-sm font-medium cursor-not-allowed"
-                    style={{ background: '#2d2d2b', color: '#5e5d59', border: '1px solid #3d3d3a' }}
+                    style={{ background: 'var(--lp-border-soon)', color: 'var(--lp-text-muted)', border: '1px solid var(--lp-border-soft)' }}
                     aria-disabled="true"
                   >
                     {plan.cta}
@@ -272,16 +272,16 @@ export function PricingSection() {
                     disabled={disabledPaid || isLoading}
                     className="mt-auto flex items-center justify-center px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed text-center leading-snug min-h-[48px]"
                     style={isRec
-                      ? { background: '#c96442', color: '#faf9f5', boxShadow: '0 0 0 1px #c96442' }
-                      : { background: '#3d3d3a', color: '#faf9f5', border: '1px solid #4d4c48' }
+                      ? { background: 'var(--lp-terracotta)', color: 'var(--lp-text-on-dark)', boxShadow: '0 0 0 1px var(--lp-terracotta)' }
+                      : { background: 'var(--lp-border-soft)', color: 'var(--lp-text-on-dark)', border: '1px solid var(--lp-charcoal-warm)' }
                     }
                     onMouseEnter={e => {
                       if (disabledPaid || isLoading) return;
-                      e.currentTarget.style.background = isRec ? '#b8573a' : '#4d4c48';
+                      e.currentTarget.style.background = isRec ? '#b8573a' : 'var(--lp-charcoal-warm)';
                     }}
                     onMouseLeave={e => {
                       if (disabledPaid || isLoading) return;
-                      e.currentTarget.style.background = isRec ? '#c96442' : '#3d3d3a';
+                      e.currentTarget.style.background = isRec ? 'var(--lp-terracotta)' : 'var(--lp-border-soft)';
                     }}
                   >
                     {isLoading ? (
@@ -299,9 +299,9 @@ export function PricingSection() {
                   <Link
                     href={isLoggedIn ? '/chat' : signInForChatHref}
                     className="mt-auto flex items-center justify-center px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 cursor-pointer"
-                    style={{ background: '#3d3d3a', color: '#faf9f5', border: '1px solid #4d4c48' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#4d4c48'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#3d3d3a'; }}
+                    style={{ background: 'var(--lp-border-soft)', color: 'var(--lp-text-on-dark)', border: '1px solid var(--lp-charcoal-warm)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-charcoal-warm)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--lp-border-soft)'; }}
                   >
                     {plan.cta}
                   </Link>
@@ -311,9 +311,9 @@ export function PricingSection() {
           })}
         </div>
 
-        <p className="text-center mt-10 text-sm" style={{ color: '#5e5d59' }}>
+        <p className="text-center mt-10 text-sm" style={{ color: 'var(--lp-text-on-dark-muted)' }}>
           {tx.ctaNote}{' '}
-          <a href="#faq" style={{ color: '#d97757', textDecoration: 'underline' }}>
+          <a href="#faq" style={{ color: 'var(--lp-coral)', textDecoration: 'underline' }}>
             {tx.ctaNoteFaqLink}
           </a>
         </p>

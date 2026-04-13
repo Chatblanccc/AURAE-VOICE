@@ -23,34 +23,34 @@ export function TestimonialsSection() {
   const tx = t[lang].testimonials;
 
   return (
-    <section className="py-28 px-6" style={{ background: '#f5f4ed' }}>
+    <section className="py-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: '#c96442', letterSpacing: '0.12em' }}>
+          <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-terracotta)', letterSpacing: '0.12em' }}>
             {tx.overline}
           </p>
-          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: '#141413', lineHeight: '1.20' }}>
+          <h2 className="lp-serif text-4xl md:text-5xl font-medium mb-5" style={{ color: 'var(--lp-text)', lineHeight: '1.20' }}>
             {tx.heading}
           </h2>
-          <p className="text-lg max-w-xl mx-auto" style={{ color: '#5e5d59', lineHeight: '1.60' }}>
+          <p className="text-lg max-w-xl mx-auto" style={{ color: 'var(--lp-text-muted)', lineHeight: '1.60' }}>
             {tx.subheading}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tx.items.map((item, i) => (
-            <div key={i} className="rounded-2xl p-7 flex flex-col gap-5" style={{ background: '#faf9f5', border: '1px solid #f0eee6', boxShadow: 'rgba(0,0,0,0.04) 0px 4px 24px' }}>
+            <div key={i} className="rounded-2xl p-7 flex flex-col gap-5" style={{ background: 'var(--lp-bg-card)', border: '1px solid var(--lp-border)', boxShadow: 'var(--lp-shadow-card) 0px 4px 24px' }}>
               <StarRating count={5} />
-              <p className="text-base flex-1" style={{ color: '#4d4c48', lineHeight: '1.65' }}>
+              <p className="text-base flex-1" style={{ color: 'var(--lp-text-charcoal)', lineHeight: '1.65' }}>
                 &ldquo;{item.quote}&rdquo;
               </p>
-              <div className="flex items-center gap-3 pt-1" style={{ borderTop: '1px solid #f0eee6' }}>
+              <div className="flex items-center gap-3 pt-1" style={{ borderTop: '1px solid var(--lp-border)' }}>
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0" style={{ background: avatarColors[i], color: '#fff' }}>
                   {avatarInitials[i]}
                 </div>
                 <div>
-                  <p className="text-sm font-medium" style={{ color: '#141413' }}>{item.name}</p>
-                  <p className="text-xs" style={{ color: '#87867f' }}>{item.role}</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--lp-text)' }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: 'var(--lp-text-subtle)' }}>{item.role}</p>
                 </div>
               </div>
             </div>

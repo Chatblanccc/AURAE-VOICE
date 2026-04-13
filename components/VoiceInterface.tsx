@@ -11,9 +11,10 @@ import { AvatarScene } from '@/components/AvatarScene';
 import { AvatarCharacter } from '@/components/AvatarCharacter';
 import { TrumpAvatarCharacter } from '@/components/TrumpAvatarCharacter';
 import { AuraeLogo } from '@/components/AuraeLogo';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare,
-  Send, Keyboard, Sun, Moon, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
+  Send, Keyboard, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
   BookOpen, CheckCircle, Zap, Users,
 } from 'lucide-react';
 
@@ -555,20 +556,6 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
         )
       ) : null}
     </div>
-  );
-};
-
-const ThemeToggle = () => {
-  const { theme, toggleTheme, mode } = useThemeStore();
-  return (
-    <button onClick={toggleTheme}
-      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all cursor-pointer"
-      style={{ color: theme.textMuted, background: theme.bgInput }}
-      onMouseEnter={e => { e.currentTarget.style.color = theme.accentText; }}
-      onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; }}
-      title={mode === 'dark' ? 'Switch to light' : 'Switch to dark'}>
-      {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
-    </button>
   );
 };
 

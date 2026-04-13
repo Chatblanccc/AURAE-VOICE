@@ -249,7 +249,7 @@
         {
           question: "What languages does AURAE VOICE support?",
           answer:
-            "Currently AURAE VOICE is focused on English as the target language. Our learners come from all native language backgrounds — we support Spanish, Mandarin, Japanese, Portuguese, Arabic, Korean, Hindi, and many more as your starting point.",
+            "AURAE VOICE focuses on English as the language you are learning. The product is available in English and Chinese only for now — other languages are not supported yet.",
         },
         {
           question: "Is my conversation data private?",
@@ -264,7 +264,7 @@
         {
           question: "How many practice scenarios are there?",
           answer:
-            "The Free plan includes 5 scenarios. Pro unlocks all 40+ current scenarios, and we add new ones every week based on learner requests. Popular categories include business English, travel, social situations, and academic English.",
+            "The Free plan includes 2 scenarios. Pro unlocks all 40+ current scenarios, and we add new ones every week based on learner requests. Popular categories include business English, travel, social situations, and academic English.",
         },
       ],
     },
@@ -540,7 +540,7 @@
         {
           question: 'AURAE VOICE 支持哪些母语？',
           answer:
-            '目前 AURAE VOICE 专注于英语作为目标语言。我们的学员来自各种母语背景——支持西班牙语、普通话、日语、葡萄牙语、阿拉伯语、韩语、印地语等多种语言作为起点。',
+            '目前 AURAE VOICE 以英语为学习目标语言；产品界面与说明仅支持中文与英文，暂不支持其他语言。更多语言将在后续版本中逐步考虑。',
         },
         {
           question: '我的对话数据是否私密？',
@@ -555,7 +555,7 @@
         {
           question: '练习场景有多少个？',
           answer:
-            '免费版包含 5 个场景。专业版解锁目前所有 40+ 个场景，并根据学员需求每周新增。热门类别包括商务英语、旅行、社交场合和学术英语。',
+            '免费版包含 2 个场景。专业版解锁目前所有 40+ 个场景，并根据学员需求每周新增。热门类别包括商务英语、旅行、社交场合和学术英语。',
         },
       ],
     },

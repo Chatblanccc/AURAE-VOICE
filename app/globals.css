@@ -156,6 +156,79 @@ html[data-theme="dark"] body {
   --lp-ring-warm: #d1cfc5;
 }
 
+/* ─── Landing: semantic tokens (switch with html[data-theme]) ─── */
+.landing-page {
+  --lp-bg-page: #f5f4ed;
+  --lp-bg-band: #141413;
+  --lp-bg-ivory: #faf9f5;
+  --lp-bg-card: #faf9f5;
+  --lp-bg-card-muted: #30302e;
+  --lp-bg-card-soon: #1e1e1c;
+  --lp-bg-nav-scrolled: rgba(245, 244, 237, 0.92);
+  --lp-bg-mock: #141413;
+  --lp-bg-mock-surface: #30302e;
+  --lp-bg-footer: #141413;
+  --lp-text: #141413;
+  --lp-text-muted: #5e5d59;
+  --lp-text-subtle: #87867f;
+  --lp-text-on-dark: #faf9f5;
+  --lp-text-on-dark-muted: #87867f;
+  --lp-text-charcoal: #4d4c48;
+  --lp-border: #f0eee6;
+  --lp-border-warm: #e8e6dc;
+  --lp-border-soft: #3d3d3a;
+  --lp-border-soon: #2d2d2b;
+  --lp-shadow-card: rgba(0, 0, 0, 0.04);
+  --lp-login-overlay: rgba(0, 0, 0, 0.65);
+  /* Light surface on dark bands (e.g. pricing “Popular”) — stays parchment in both themes */
+  --lp-elevated-bg: #faf9f5;
+  --lp-elevated-text: #141413;
+  --lp-elevated-text-muted: #5e5d59;
+  --lp-elevated-text-subtle: #87867f;
+  --lp-elevated-border: #f0eee6;
+  --lp-elevated-charcoal: #4d4c48;
+  /* Login / pricing modal: always dark surface on parchment landing */
+  --lp-modal-bg: #1e1e1c;
+  --lp-modal-text: #faf9f5;
+  --lp-modal-muted: #b0aea5;
+  --lp-modal-border: #3d3d3a;
+}
+
+html[data-theme='dark'] .landing-page {
+  --lp-bg-page: #141413;
+  --lp-bg-band: #0c0a08;
+  --lp-bg-ivory: #1e1e1c;
+  --lp-bg-card: #1e1e1c;
+  --lp-bg-card-muted: #2a2a28;
+  --lp-bg-card-soon: #181816;
+  --lp-bg-nav-scrolled: rgba(20, 20, 19, 0.92);
+  --lp-bg-mock: #0f0e0c;
+  --lp-bg-mock-surface: #262624;
+  --lp-bg-footer: #0c0a08;
+  --lp-text: rgba(250, 249, 245, 0.92);
+  --lp-text-muted: rgba(176, 174, 165, 0.88);
+  --lp-text-subtle: rgba(135, 134, 127, 0.85);
+  --lp-text-on-dark: rgba(250, 249, 245, 0.92);
+  --lp-text-on-dark-muted: rgba(176, 174, 165, 0.85);
+  --lp-text-charcoal: rgba(228, 226, 218, 0.88);
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-border-warm: rgba(255, 255, 255, 0.1);
+  --lp-border-soft: rgba(255, 255, 255, 0.12);
+  --lp-border-soon: rgba(255, 255, 255, 0.06);
+  --lp-shadow-card: rgba(0, 0, 0, 0.35);
+  --lp-login-overlay: rgba(0, 0, 0, 0.75);
+  --lp-elevated-bg: #faf9f5;
+  --lp-elevated-text: #141413;
+  --lp-elevated-text-muted: #5e5d59;
+  --lp-elevated-text-subtle: #87867f;
+  --lp-elevated-border: #e8e6dc;
+  --lp-elevated-charcoal: #4d4c48;
+  --lp-modal-bg: #1a1a18;
+  --lp-modal-text: rgba(250, 249, 245, 0.92);
+  --lp-modal-muted: rgba(176, 174, 165, 0.9);
+  --lp-modal-border: rgba(255, 255, 255, 0.12);
+}
+
 /* ─── Landing page typography ─── */
 .lp-serif {
   font-family: Georgia, 'Times New Roman', serif;
