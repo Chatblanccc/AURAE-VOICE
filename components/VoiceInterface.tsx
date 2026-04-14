@@ -15,7 +15,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Mic, MicOff, Square, RotateCcw, Volume2, MessageSquare,
   Send, Keyboard, LogOut, Plus, Trash2, Menu, X, PanelLeftClose, PanelLeftOpen,
-  BookOpen, CheckCircle, Zap, Users, ChevronDown,
+  BookOpen, CheckCircle, Zap, Users, ChevronDown, Loader2,
 } from 'lucide-react';
 
 import type { Conversation, Persona, UsageInfo } from '@/types';
@@ -414,9 +414,10 @@ const ChallengeCard = ({
 
 // ─── ChatBubble ───────────────────────────────────────────────────────────────
 
-const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
+const ChatBubble = ({ message, onReplay, replaying, speakerName, speakerAccent }: {
   message: UIMessage;
   onReplay?: () => void;
+  replaying?: boolean;
   speakerName?: string;
   speakerAccent?: string;
 }) => {
@@ -574,11 +575,19 @@ const ChatBubble = ({ message, onReplay, speakerName, speakerAccent }: {
 
         {!u && fullText && onReplay && (
           <button onClick={onReplay}
-            className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer opacity-0 group-hover:opacity-100 pl-1 mt-1"
+            disabled={replaying}
+            className="flex items-center gap-1 text-[10px] transition-colors cursor-pointer opacity-0 group-hover:opacity-100 pl-1 mt-1 disabled:opacity-100 disabled:cursor-not-allowed"
             style={{ color: theme.textDim }}
-            onMouseEnter={e => (e.currentTarget.style.color = theme.accentText)}
-            onMouseLeave={e => (e.currentTarget.style.color = theme.textDim)}>
-            <Volume2 size={10} /> Replay
+            onMouseEnter={e => {
+              if (replaying) return;
+              e.currentTarget.style.color = theme.accentText;
+            }}
+            onMouseLeave={e => {
+              if (replaying) return;
+              e.currentTarget.style.color = theme.textDim;
+            }}>
+            {replaying ? <Loader2 size={10} className="animate-spin" /> : <Volume2 size={10} />}
+            {replaying ? 'Replaying...' : 'Replay'}
           </button>
         )}
       </div>
@@ -912,7 +921,7 @@ export const VoiceInterface = () => {
     removeConversation,
   } = useChatStore();
   const { isListening, transcript, error: speechError, startListening, setTranscript } = useSpeechToText();
-  const { speak, stop, unlock, isSpeaking, beginUtterance, enqueueSegment, endUtterance } = useTextToSpeech();
+  const { speak, stop, unlock, isSpeaking, beginUtterance, enqueueSegment, endUtterance, prefetchReplayAudio } = useTextToSpeech();
   const { theme, toggleTheme, mode } = useThemeStore();
   const { data: session } = useSession();
   const userId = getUserId(session);
@@ -922,6 +931,9 @@ export const VoiceInterface = () => {
 
   const [inputLang, setInputLang] = useState<'en-US' | 'zh-CN'>('en-US');
   const [showPersonaSwitcher, setShowPersonaSwitcher] = useState(false);
+  const [replayingMessageId, setReplayingMessageId] = useState<string | null>(null);
+  const replayStartedRef = useRef(false);
+  const replayFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showTextInput, setShowTextInput] = useState(false);
   const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1025,6 +1037,8 @@ export const VoiceInterface = () => {
   const ttsSpokenTextRef = useRef('');
   const ttsUtteranceIdRef = useRef<string | null>(null);
   const ttsSegmentIndexRef = useRef(0);
+  const replayPrefetchTextRef = useRef('');
+  const replayPrefetchAtRef = useRef(0);
   const ttsTelemetryRef = useRef<{
     firstTokenAt: number | null;
     firstSegmentQueuedAt: number | null;
@@ -1096,6 +1110,22 @@ export const VoiceInterface = () => {
 
     if (canSegment && last?.role === 'assistant') {
       const fullText = extractText(last).trim();
+      if (fullText) {
+        const now = Date.now();
+        const grewEnough = fullText.length - replayPrefetchTextRef.current.length >= 80;
+        const endsWithBoundary = /[.!?。！？]$/.test(fullText);
+        const enoughTime = now - replayPrefetchAtRef.current >= 600;
+        if (
+          fullText !== replayPrefetchTextRef.current
+          && fullText.length >= 24
+          && enoughTime
+          && (endsWithBoundary || grewEnough || status === 'ready')
+        ) {
+          prefetchReplayAudio(fullText, activeVoiceId);
+          replayPrefetchTextRef.current = fullText;
+          replayPrefetchAtRef.current = now;
+        }
+      }
       if (status === 'streaming') {
         if (!ttsUtteranceIdRef.current) {
           ttsUtteranceIdRef.current = `${Date.now()}-${generateId()}`;
@@ -1115,6 +1145,11 @@ export const VoiceInterface = () => {
 
       if (prevStatus.current !== 'ready' && status === 'ready') {
         flushSegmentedTtsBuffer(true);
+        if (fullText && fullText !== replayPrefetchTextRef.current) {
+          prefetchReplayAudio(fullText, activeVoiceId);
+          replayPrefetchTextRef.current = fullText;
+          replayPrefetchAtRef.current = Date.now();
+        }
         if (ttsTelemetryRef.current.firstTokenAt !== null) {
           console.info(
             '[tts-metric] streamToReadyMs',
@@ -1138,6 +1173,8 @@ export const VoiceInterface = () => {
     if (!last || last.role !== 'assistant') {
       ttsSpokenTextRef.current = '';
       ttsBufferRef.current = '';
+      replayPrefetchTextRef.current = '';
+      replayPrefetchAtRef.current = 0;
       if (status !== 'streaming') {
         resetSegmentedTtsState();
       }
@@ -1161,6 +1198,7 @@ export const VoiceInterface = () => {
     enqueueSegment,
     flushSegmentedTtsBuffer,
     resetSegmentedTtsState,
+    prefetchReplayAudio,
   ]);
 
   // ── Handle chatError — detect 429 limit_reached ───────────────────────────
@@ -1351,6 +1389,12 @@ export const VoiceInterface = () => {
     setMessages([]);
     resetSegmentedTtsState();
     stop();
+    setReplayingMessageId(null);
+    if (replayFallbackTimerRef.current) {
+      clearTimeout(replayFallbackTimerRef.current);
+      replayFallbackTimerRef.current = null;
+    }
+    replayStartedRef.current = false;
   }, [resetSegmentedTtsState, setCurrentConversationId, setMessages, stop]);
 
   // ── Clear / delete current conversation ──────────────────────────────────
@@ -1359,6 +1403,12 @@ export const VoiceInterface = () => {
     setMessages([]);
     resetSegmentedTtsState();
     stop();
+    setReplayingMessageId(null);
+    if (replayFallbackTimerRef.current) {
+      clearTimeout(replayFallbackTimerRef.current);
+      replayFallbackTimerRef.current = null;
+    }
+    replayStartedRef.current = false;
     if (convId) {
       removeConversation(convId);
       setCurrentConversationId(null);
@@ -1367,8 +1417,33 @@ export const VoiceInterface = () => {
     }
   }, [removeConversation, resetSegmentedTtsState, setCurrentConversationId, setMessages, stop]);
 
-  const handleMicClick = useCallback(() => { unlock(); resetSegmentedTtsState(); stop(); startListening(inputLang); }, [unlock, resetSegmentedTtsState, stop, startListening, inputLang]);
-  const handleReplay = useCallback((text: string) => { unlock(); speak(text, activeVoiceId); }, [unlock, speak, activeVoiceId]);
+  const handleMicClick = useCallback(() => {
+    unlock();
+    resetSegmentedTtsState();
+    stop();
+    setReplayingMessageId(null);
+    if (replayFallbackTimerRef.current) {
+      clearTimeout(replayFallbackTimerRef.current);
+      replayFallbackTimerRef.current = null;
+    }
+    replayStartedRef.current = false;
+    startListening(inputLang);
+  }, [unlock, resetSegmentedTtsState, stop, startListening, inputLang]);
+  const handleReplay = useCallback((messageId: string, text: string) => {
+    if (replayingMessageId || !text.trim()) return;
+    unlock();
+    resetSegmentedTtsState();
+    stop({ preserveReplayCache: true });
+    setReplayingMessageId(messageId);
+    replayStartedRef.current = false;
+    if (replayFallbackTimerRef.current) clearTimeout(replayFallbackTimerRef.current);
+    replayFallbackTimerRef.current = setTimeout(() => {
+      setReplayingMessageId(current => (current === messageId ? null : current));
+      replayStartedRef.current = false;
+      replayFallbackTimerRef.current = null;
+    }, 15000);
+    speak(text, activeVoiceId);
+  }, [replayingMessageId, unlock, resetSegmentedTtsState, stop, speak, activeVoiceId]);
   const handleTextSend = useCallback((text: string) => { unlock(); handleSendRef.current(text); }, [unlock]);
   const applyScenario = useCallback((scenarioId: string) => {
     if (isLoading || limitReached || scenarioLaunchingId) return;
@@ -1418,6 +1493,25 @@ export const VoiceInterface = () => {
     resetSegmentedTtsState();
     stop();
   }, [resetSegmentedTtsState, selectedPersona, setPersona, setCurrentConversationId, setMessages, stop]);
+
+  useEffect(() => {
+    if (!replayingMessageId) return;
+    if (isSpeaking) {
+      replayStartedRef.current = true;
+      return;
+    }
+    if (!replayStartedRef.current) return;
+    setReplayingMessageId(null);
+    replayStartedRef.current = false;
+    if (replayFallbackTimerRef.current) {
+      clearTimeout(replayFallbackTimerRef.current);
+      replayFallbackTimerRef.current = null;
+    }
+  }, [isSpeaking, replayingMessageId]);
+
+  useEffect(() => () => {
+    if (replayFallbackTimerRef.current) clearTimeout(replayFallbackTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!showPersonaSwitcher) return;
@@ -1680,6 +1774,14 @@ export const VoiceInterface = () => {
 
   // ── Filtered messages for display ─────────────────────────────────────────
   const displayMessages = chatMessages.filter(m => m.role === 'user' || m.role === 'assistant');
+
+  useEffect(() => {
+    const target = [...displayMessages].reverse().find((m) => m.role === 'assistant');
+    if (!target) return;
+    const text = extractText(target).trim();
+    if (!text) return;
+    prefetchReplayAudio(text, activeVoiceId);
+  }, [displayMessages, activeVoiceId, prefetchReplayAudio]);
 
   const renderPlanEntryCard = (mobile = false) => {
     const hasAnyPlanContent = !!todayPlan || !!todayMainScenario || homeRecommendedScenarios.length > 0;
@@ -2232,7 +2334,8 @@ export const VoiceInterface = () => {
               <ChatBubble key={m.id} message={m}
                 speakerName={PERSONA_META[selectedPersona].name}
                 speakerAccent={personaAccent}
-                onReplay={m.role === 'assistant' ? () => handleReplay(extractText(m)) : undefined} />
+                replaying={replayingMessageId === m.id}
+                onReplay={m.role === 'assistant' ? () => handleReplay(m.id, extractText(m)) : undefined} />
             ))}
             {isListening && transcript && (
               <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .25s ease-out' }}>
@@ -2428,7 +2531,8 @@ export const VoiceInterface = () => {
             <ChatBubble key={m.id} message={m}
               speakerName={PERSONA_META[selectedPersona].name}
               speakerAccent={personaAccent}
-              onReplay={m.role === 'assistant' ? () => handleReplay(extractText(m)) : undefined} />
+              replaying={replayingMessageId === m.id}
+              onReplay={m.role === 'assistant' ? () => handleReplay(m.id, extractText(m)) : undefined} />
           ))}
           {isListening && transcript && (
             <div className="flex flex-col items-end gap-0.5" style={{ animation: 'fadeUp .2s ease-out' }}>

@@ -12,6 +12,12 @@ type PrefetchedAudio = {
   text: string;
 };
 
+const REPLAY_CACHE_LIMIT = 20;
+
+function buildReplayCacheKey(text: string, voiceId?: string | null): string {
+  return `${voiceId ?? '__browser__'}::${text}`;
+}
+
 export const useTextToSpeech = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -30,6 +36,8 @@ export const useTextToSpeech = () => {
   const generationRef = useRef(0);
   const prefetchedAudioRef = useRef<Map<string, PrefetchedAudio>>(new Map());
   const inflightPrefetchRef = useRef<Map<string, Promise<PrefetchedAudio | null>>>(new Map());
+  const replayCacheRef = useRef<Map<string, PrefetchedAudio>>(new Map());
+  const replayInflightRef = useRef<Map<string, Promise<PrefetchedAudio | null>>>(new Map());
 
   // ── Browser TTS helpers ───────────────────────────────────────────────────
   const startResumeHeartbeat = useCallback(() => {
@@ -87,6 +95,22 @@ export const useTextToSpeech = () => {
     }
     prefetchedAudioRef.current.clear();
     inflightPrefetchRef.current.clear();
+  }, []);
+
+  const setReplayCacheItem = useCallback((cacheKey: string, audioData: PrefetchedAudio) => {
+    const existing = replayCacheRef.current.get(cacheKey);
+    if (existing) {
+      URL.revokeObjectURL(existing.url);
+      replayCacheRef.current.delete(cacheKey);
+    }
+    replayCacheRef.current.set(cacheKey, audioData);
+    while (replayCacheRef.current.size > REPLAY_CACHE_LIMIT) {
+      const oldestKey = replayCacheRef.current.keys().next().value as string | undefined;
+      if (!oldestKey) break;
+      const oldest = replayCacheRef.current.get(oldestKey);
+      if (oldest) URL.revokeObjectURL(oldest.url);
+      replayCacheRef.current.delete(oldestKey);
+    }
   }, []);
 
   const fetchFishAudioSegment = useCallback(
@@ -185,6 +209,24 @@ export const useTextToSpeech = () => {
     return task;
   }, [fetchFishAudioSegment]);
 
+  const prefetchReplayAudio = useCallback((text: string, voiceId?: string | null) => {
+    const clean = text.replace(/[*#_`]/g, '').trim();
+    if (!clean || !voiceId) return;
+    const cacheKey = buildReplayCacheKey(clean, voiceId);
+    if (replayCacheRef.current.has(cacheKey)) return;
+    if (replayInflightRef.current.has(cacheKey)) return;
+
+    const task = fetchFishAudioSegment(clean, voiceId)
+      .then((audioData) => {
+        if (audioData) setReplayCacheItem(cacheKey, audioData);
+        return audioData;
+      })
+      .finally(() => {
+        replayInflightRef.current.delete(cacheKey);
+      });
+    replayInflightRef.current.set(cacheKey, task);
+  }, [fetchFishAudioSegment, setReplayCacheItem]);
+
   // ── Fish Audio TTS ────────────────────────────────────────────────────────
   const doFishAudioSpeak = useCallback(
     async (text: string, voiceId: string): Promise<void> => {
@@ -247,25 +289,34 @@ export const useTextToSpeech = () => {
   const speak = useCallback(
     (text: string, voiceId?: string | null) => {
       if (typeof window === 'undefined') return;
-      if (!text.trim()) return;
+      const clean = text.replace(/[*#_`]/g, '').trim();
+      if (!clean) return;
 
       if (voiceId) {
+        const cacheKey = buildReplayCacheKey(clean, voiceId);
+        const cachedReplayAudio = replayCacheRef.current.get(cacheKey);
+        if (cachedReplayAudio) {
+          replayCacheRef.current.delete(cacheKey);
+          void playPrefetchedAudio(cachedReplayAudio);
+          return;
+        }
         // Fish Audio path — no unlock needed (uses fetch + Audio element)
-        doFishAudioSpeak(text, voiceId);
+        doFishAudioSpeak(clean, voiceId);
       } else {
         // Browser TTS path — requires unlock first
         if (!window.speechSynthesis) return;
         if (unlockedRef.current) {
-          doBrowserSpeak(text);
+          doBrowserSpeak(clean);
         } else {
-          pendingRef.current = { text, voiceId: null };
+          pendingRef.current = { text: clean, voiceId: null };
         }
       }
     },
-    [doBrowserSpeak, doFishAudioSpeak],
+    [doBrowserSpeak, doFishAudioSpeak, playPrefetchedAudio],
   );
 
-  const stop = useCallback(() => {
+  const stop = useCallback((options?: { preserveReplayCache?: boolean }) => {
+    const preserveReplayCache = options?.preserveReplayCache === true;
     generationRef.current += 1;
     queueRef.current = [];
     activeUtteranceRef.current = null;
@@ -288,6 +339,13 @@ export const useTextToSpeech = () => {
     }
     fetchControllersRef.current.clear();
     clearPrefetchedAudio();
+    if (!preserveReplayCache) {
+      for (const item of replayCacheRef.current.values()) {
+        URL.revokeObjectURL(item.url);
+      }
+      replayCacheRef.current.clear();
+      replayInflightRef.current.clear();
+    }
     pendingRef.current = null;
     setIsSpeaking(false);
     if (resumeTimerRef.current) {
@@ -363,5 +421,5 @@ export const useTextToSpeech = () => {
     }
   }, []);
 
-  return { speak, stop, unlock, isSpeaking, beginUtterance, enqueueSegment, endUtterance };
+  return { speak, stop, unlock, isSpeaking, beginUtterance, enqueueSegment, endUtterance, prefetchReplayAudio };
 };
