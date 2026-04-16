@@ -1,6 +1,7 @@
 import type { RankProgress, RankStage } from '@/types';
 
-export const RANK_STEP_XP = 120;
+// One small division requires 100 XP.
+export const RANK_STEP_XP = 100;
 
 const TIERS = [
   { name: '黑铁', icon: '🛡️', divisions: 4 },

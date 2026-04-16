@@ -985,6 +985,8 @@ export const VoiceInterface = () => {
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [missionRuntimeProgress, setMissionRuntimeProgress] = useState<MissionProgressInfo | null>(null);
   const [limitReached, setLimitReached] = useState(false);
+  const missionClaimInFlightRef = useRef(false);
+  const missionClaimedDateRef = useRef<string | null>(null);
 
   // ── API health status ─────────────────────────────────────────────────────
   const [apiReady, setApiReady] = useState<boolean | null>(null);
@@ -1115,10 +1117,36 @@ export const VoiceInterface = () => {
       if (!res.ok) return;
       const missionData: MissionProgressInfo = await res.json();
       setMissionRuntimeProgress(missionData);
+      if (
+        missionData.progressPercent >= 100 &&
+        !missionData.rewardClaimed &&
+        missionClaimedDateRef.current !== missionData.dateKey &&
+        !missionClaimInFlightRef.current
+      ) {
+        missionClaimInFlightRef.current = true;
+        try {
+          const claimRes = await fetch('/api/mission-progress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'claim_reward', conversationId }),
+          });
+          if (claimRes.ok) {
+            missionClaimedDateRef.current = missionData.dateKey;
+            fetchUsage();
+            const updated = await fetch(`/api/mission-progress${qs}`, { cache: 'no-store' });
+            if (updated.ok) {
+              const updatedMissionData: MissionProgressInfo = await updated.json();
+              setMissionRuntimeProgress(updatedMissionData);
+            }
+          }
+        } finally {
+          missionClaimInFlightRef.current = false;
+        }
+      }
     } catch {
       // non-fatal
     }
-  }, []);
+  }, [fetchUsage]);
 
   useEffect(() => {
     if (!userId) return;
@@ -1511,6 +1539,15 @@ export const VoiceInterface = () => {
     if (!picked) return;
     setScenarioLaunchingId(scenarioId);
     setSelectedScenarioId(scenarioId);
+    fetch('/api/mission-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'complete_quest', scenarioId }),
+    }).then(() => {
+      fetchMissionProgress(currentConvIdRef.current);
+    }).catch(() => {
+      // non-fatal
+    });
     updateSettings({
       topic: `${picked.titleEn}: ${picked.objective}`,
     });
@@ -1518,7 +1555,17 @@ export const VoiceInterface = () => {
     const starter = `Let's practice this scenario: ${picked.titleEn}. Goal: ${picked.objective}. Please start the role-play naturally and guide me with short feedback.`;
     handleSendRef.current(starter);
     setTimeout(() => setScenarioLaunchingId(null), 450);
-  }, [isLoading, limitReached, recommendedScenarios, scenarioLaunchingId, scenarios, todayPlan, unlock, updateSettings]);
+  }, [
+    fetchMissionProgress,
+    isLoading,
+    limitReached,
+    recommendedScenarios,
+    scenarioLaunchingId,
+    scenarios,
+    todayPlan,
+    unlock,
+    updateSettings,
+  ]);
 
   const handleStartFreeChat = useCallback(() => {
     if (isLoading || limitReached || scenarioLaunchingId) return;
@@ -1854,12 +1901,15 @@ export const VoiceInterface = () => {
     const stepLabel = mobile ? 'text-[10px]' : 'text-[11px]';
     const titleSize = mobile ? 'text-sm' : 'text-base';
     const bodySize = mobile ? 'text-[11px]' : 'text-xs';
-    const questMainReady = !!todayMainScenario;
+    const questMainReady = missionRuntimeProgress?.questStatus?.mainCompleted ?? false;
     const questFocusReady = focusItems.length > 0;
-    const questBonusReady = homeRecommendedScenarios.length > 0;
+    const questBonusReady = missionRuntimeProgress?.questStatus?.bonusCompleted ?? false;
     const completedQuestCount = [questMainReady, questFocusReady, questBonusReady].filter(Boolean).length;
     const questEstimatedProgress = Math.round((completedQuestCount / 3) * 100);
     const missionProgress = missionRuntimeProgress?.progressPercent ?? questEstimatedProgress;
+    const missionCompleted = missionProgress >= 100;
+    const missionRewardClaimed = !!missionRuntimeProgress?.rewardClaimed;
+    const missionRewardXp = missionRuntimeProgress?.rewardXp ?? 30;
     const earnedXp = completedQuestCount * 20;
     const questStreakDays = Math.min(7, Math.max(1, completedQuestCount + (todayPlan ? 1 : 0)));
     const effectiveStreakDays = rankProgress?.streakDays ?? questStreakDays;
@@ -1899,9 +1949,27 @@ export const VoiceInterface = () => {
             <p className={`${stepLabel} font-semibold uppercase tracking-wide mb-2`} style={{ color: theme.textMuted }}>Quest Track</p>
             <div className={`space-y-2.5 ${stageMode && !mobile ? 'flex-1' : ''}`}>
               {[
-                { title: 'Main Quest', text: todayMainScenario?.titleEn ?? 'Select your primary scenario', done: questMainReady, reward: '+20 XP' },
-                { title: 'Side Quest', text: focusItems.length ? focusItems.join(' · ') : 'Get focus corrections ready', done: questFocusReady, reward: '+20 XP' },
-                { title: 'Bonus Quest', text: homeRecommendedScenarios[0]?.titleEn ?? 'Unlock a recommended scenario', done: questBonusReady, reward: '+20 XP' },
+                {
+                  title: 'Main Quest',
+                  text: todayMainScenario?.titleEn ?? 'Select your primary scenario',
+                  done: questMainReady,
+                  reward: '+20 XP',
+                  showStatusTag: true,
+                },
+                {
+                  title: 'Side Quest',
+                  text: focusItems.length ? focusItems.join(' · ') : 'Get focus corrections ready',
+                  done: questFocusReady,
+                  reward: '+20 XP',
+                  showStatusTag: false,
+                },
+                {
+                  title: 'Bonus Quest',
+                  text: homeRecommendedScenarios[0]?.titleEn ?? 'Unlock a recommended scenario',
+                  done: questBonusReady,
+                  reward: '+20 XP',
+                  showStatusTag: true,
+                },
               ].map((quest, idx) => (
                 <div key={quest.title} className="flex items-start gap-2.5">
                   <div
@@ -1915,7 +1983,21 @@ export const VoiceInterface = () => {
                     {quest.done ? <CheckCircle size={12} /> : <span className="text-[10px] font-semibold">{idx + 1}</span>}
                   </div>
                   <div className="min-w-0">
-                    <p className={`${bodySize} font-semibold`} style={{ color: theme.textPrimary }}>{quest.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className={`${bodySize} font-semibold`} style={{ color: theme.textPrimary }}>{quest.title}</p>
+                      {quest.showStatusTag ? (
+                        <span
+                          className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+                          style={{
+                            color: quest.done ? '#22c55e' : theme.textMuted,
+                            borderColor: quest.done ? 'rgba(34,197,94,.35)' : theme.bgInputBorder,
+                            background: quest.done ? 'rgba(34,197,94,.14)' : 'transparent',
+                          }}
+                        >
+                          {quest.done ? 'Completed' : 'Not completed'}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className={`${bodySize} truncate`} style={{ color: theme.textMuted }}>{quest.text}</p>
                     <p className="text-[10px]" style={{ color: theme.accentPale }}>{quest.reward}</p>
                   </div>
@@ -1942,12 +2024,26 @@ export const VoiceInterface = () => {
             ) : null}
             <div className={`mt-3 ${stageMode && !mobile ? 'mt-auto pt-2' : ''}`}>
               <div className="flex items-center justify-between mb-1">
-                <p className={stepLabel} style={{ color: theme.textMuted }}>
-                  Mission progress
-                  {missionRuntimeProgress
-                    ? ` (${Math.max(1, Math.round(missionRuntimeProgress.practicedMs / 60000))}/${Math.max(1, Math.round(missionRuntimeProgress.targetMs / 60000))} min)`
-                    : ''}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <p className={stepLabel} style={{ color: theme.textMuted }}>
+                    Mission progress
+                    {missionRuntimeProgress
+                      ? ` (${Math.max(1, Math.round(missionRuntimeProgress.practicedMs / 60000))}/${Math.max(1, Math.round(missionRuntimeProgress.targetMs / 60000))} min)`
+                      : ''}
+                  </p>
+                  {missionCompleted ? (
+                    <span
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        color: missionRewardClaimed ? '#22c55e' : theme.accentText,
+                        background: missionRewardClaimed ? 'rgba(34,197,94,.16)' : 'rgba(201,100,66,.14)',
+                        border: `1px solid ${missionRewardClaimed ? 'rgba(34,197,94,.35)' : 'rgba(201,100,66,.3)'}`,
+                      }}
+                    >
+                      {missionRewardClaimed ? 'Completed' : 'Completed - pending reward'}
+                    </span>
+                  ) : null}
+                </div>
                 <p className={stepLabel} style={{ color: theme.accentText }}>{missionProgress}%</p>
               </div>
               <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: theme.mode === 'dark' ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)' }}>
@@ -2009,9 +2105,13 @@ export const VoiceInterface = () => {
             </div>
             <div className={`rounded-lg border p-2.5 ${stageMode && !mobile ? 'mt-4' : 'mt-3.5'}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgCard }}>
               <p className={stepLabel} style={{ color: theme.textMuted }}>Reward preview</p>
-              <p className={`${bodySize} font-semibold mt-1`} style={{ color: theme.textPrimary }}>+{earnedXp} XP</p>
+              <p className={`${bodySize} font-semibold mt-1`} style={{ color: theme.textPrimary }}>
+                {missionRewardClaimed ? `+${missionRewardXp} XP claimed` : `+${missionRewardXp} XP on mission complete`}
+              </p>
               <p className={`${bodySize} mt-0.5`} style={{ color: theme.textMuted }}>Fluency boost +{Math.max(1, completedQuestCount)}</p>
-              <p className={`${bodySize} mt-0.5`} style={{ color: theme.accentPale }}>Streak x{effectiveStreakDays}</p>
+              <p className={`${bodySize} mt-0.5`} style={{ color: theme.accentPale }}>
+                {missionRewardClaimed ? 'Status: mission completed' : `Streak x${effectiveStreakDays}`}
+              </p>
             </div>
             {homeRecommendedScenarios.length > 0 ? (
               <div className="mt-3 flex flex-wrap gap-1.5">
@@ -2281,7 +2381,7 @@ export const VoiceInterface = () => {
       )}
 
       {/* ═══ DESKTOP ≥ lg ═══════════════════════════════════════════════════════ */}
-      <div className="hidden lg:flex h-screen w-full overflow-hidden" style={{ background: theme.bgMain }}>
+      <div className="hidden lg:flex h-[100dvh] w-full overflow-hidden" style={{ background: theme.bgMain }}>
 
         {/* ── Conversation sidebar ──────────────────────────────────────────── */}
         <aside
@@ -2364,7 +2464,7 @@ export const VoiceInterface = () => {
         <main className="relative flex-1 flex flex-col overflow-hidden" style={{ background: theme.bgMain }}>
 
           {displayMessages.length === 0 ? (
-            <div className="avatar-strip flex-shrink-0 flex flex-col items-center gap-1 pt-5 pb-4 relative z-10"
+            <div className="avatar-strip flex-shrink-0 flex flex-col items-center gap-1 pt-2 pb-2 relative z-10"
               style={{ borderBottom: `1px solid ${theme.separatorColor}` }}>
               <div className="flex items-center gap-2 px-3.5 py-1 rounded-full border mb-1"
                 style={{ background: theme.bgStatusPill, borderColor: `${personaAccent}20` }}>
@@ -2372,7 +2472,7 @@ export const VoiceInterface = () => {
                   style={{ background: statusColor, boxShadow: isActive ? `0 0 6px ${statusColor}` : apiReady ? `0 0 5px ${API_GREEN}99` : 'none' }} />
                 <span className="text-[11px] font-medium tracking-wide" style={{ color: statusColor }}>{statusLabel}</span>
               </div>
-              <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} apiReady={apiReady === true} size={140} />
+              <AvatarScene persona={selectedPersona} isListening={isListening} isSpeaking={isSpeaking} isLoading={isLoading} apiReady={apiReady === true} size={104} />
               <WaveformBars active={isListening || isSpeaking} color={selectedPersona === 'trump' ? 'bg-[#CC1A1A]' : 'bg-[#c96442]'} />
             </div>
           ) : (
@@ -2527,7 +2627,7 @@ export const VoiceInterface = () => {
             </div>
           )}
 
-          <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-6 py-5 space-y-4"
+          <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent` }}>
             {displayMessages.length === 0 ? (
           <div className="min-h-full flex items-stretch justify-stretch py-0">
@@ -2594,7 +2694,7 @@ export const VoiceInterface = () => {
       </div>
 
       {/* ═══ MOBILE < lg ════════════════════════════════════════════════════════ */}
-      <div className="flex lg:hidden flex-col h-screen w-full overflow-hidden select-none"
+      <div className="flex lg:hidden flex-col h-[100dvh] w-full overflow-hidden select-none"
         style={{ background: theme.bgMain }}>
 
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

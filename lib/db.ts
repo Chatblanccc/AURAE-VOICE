@@ -1,6 +1,13 @@
 import 'server-only';
 import { neon } from '@neondatabase/serverless';
-import type { Message, Conversation, UserPlan } from '@/types';
+import type {
+  Conversation,
+  MemoryCandidate,
+  Message,
+  PersonalizationVariant,
+  UserMemoryFact,
+  UserPlan,
+} from '@/types';
 
 /** Caps row reads to limit memory/response DoS from very large accounts. */
 const MAX_CONVERSATIONS = 2000;
@@ -140,6 +147,76 @@ export async function ensureSchema() {
       )
     `;
   } catch (e) { console.error('[schema] user_progress table:', String(e)); }
+
+  // ── Personalization memory & experiments ─────────────────────────────────
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_memory_facts (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL,
+        kind          TEXT NOT NULL,
+        memory_key    TEXT NOT NULL,
+        memory_value  TEXT NOT NULL,
+        confidence    DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+        updated_at_ms BIGINT NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_memory_facts table:', String(e)); }
+
+  try { await sql`CREATE INDEX IF NOT EXISTS user_memory_facts_user_idx ON user_memory_facts(user_id, updated_at_ms DESC)`; } catch {}
+  try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_memory_facts_dedupe_idx ON user_memory_facts(user_id, kind, memory_key, memory_value)`; } catch {}
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS chat_round_profiles (
+        id                 TEXT PRIMARY KEY,
+        user_id            TEXT NOT NULL,
+        conversation_id    TEXT,
+        variant            TEXT NOT NULL,
+        difficulty_band    TEXT NOT NULL,
+        challenge_interval INT NOT NULL,
+        correction_mode    TEXT NOT NULL,
+        max_sentence_len   TEXT NOT NULL,
+        reason_json        JSONB NOT NULL,
+        created_at_ms      BIGINT NOT NULL,
+        created_at         TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] chat_round_profiles table:', String(e)); }
+
+  try { await sql`CREATE INDEX IF NOT EXISTS chat_round_profiles_user_idx ON chat_round_profiles(user_id, created_at_ms DESC)`; } catch {}
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_mission_rewards (
+        id            TEXT PRIMARY KEY,
+        user_id       TEXT NOT NULL,
+        date_key      TEXT NOT NULL,
+        reward_xp     INT NOT NULL,
+        created_at_ms BIGINT NOT NULL,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_mission_rewards table:', String(e)); }
+  try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_mission_rewards_daily_idx ON user_mission_rewards(user_id, date_key)`; } catch {}
+
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_daily_quest_status (
+        id              TEXT PRIMARY KEY,
+        user_id         TEXT NOT NULL,
+        date_key        TEXT NOT NULL,
+        quest_key       TEXT NOT NULL,
+        is_completed    BOOLEAN NOT NULL DEFAULT FALSE,
+        completed_at_ms BIGINT,
+        created_at      TIMESTAMPTZ DEFAULT NOW(),
+        updated_at      TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_daily_quest_status table:', String(e)); }
+  try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_daily_quest_status_unique_idx ON user_daily_quest_status(user_id, date_key, quest_key)`; } catch {}
+  try { await sql`CREATE INDEX IF NOT EXISTS user_daily_quest_status_user_idx ON user_daily_quest_status(user_id, date_key)`; } catch {}
 
   schemaReady = true;
 }
@@ -666,6 +743,193 @@ export async function addUserXp(userId: string, delta: number): Promise<UserProg
 export interface UserPracticeMessage {
   timestamp: number;
   content: string;
+}
+
+// ── Personalization helpers ────────────────────────────────────────────────
+
+export async function listUserMemoryFacts(userId: string, limit = 20): Promise<UserMemoryFact[]> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT id, user_id, kind, memory_key, memory_value, confidence, updated_at_ms
+      FROM user_memory_facts
+      WHERE user_id = ${userId}
+      ORDER BY updated_at_ms DESC
+      LIMIT ${Math.max(1, Math.min(100, Math.floor(limit)))}
+    `;
+    return rows.map((row) => ({
+      id: String(row.id),
+      userId: String(row.user_id),
+      kind: String(row.kind) as UserMemoryFact['kind'],
+      key: String(row.memory_key),
+      value: String(row.memory_value),
+      confidence: Number(row.confidence ?? 0.5),
+      updatedAtMs: Number(row.updated_at_ms),
+    }));
+  } catch (e) {
+    console.error('[db] listUserMemoryFacts:', String(e));
+    return [];
+  }
+}
+
+export async function upsertUserMemoryFact(userId: string, candidate: MemoryCandidate): Promise<void> {
+  const sql = getDb();
+  const now = Date.now();
+  const id = `${userId}:${candidate.kind}:${candidate.key}:${candidate.value}`.slice(0, 240);
+  try {
+    await sql`
+      INSERT INTO user_memory_facts (
+        id, user_id, kind, memory_key, memory_value, confidence, updated_at_ms
+      ) VALUES (
+        ${id},
+        ${userId},
+        ${candidate.kind},
+        ${candidate.key},
+        ${candidate.value},
+        ${Math.max(0, Math.min(1, candidate.confidence))},
+        ${now}
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        confidence = EXCLUDED.confidence,
+        updated_at_ms = EXCLUDED.updated_at_ms
+    `;
+  } catch (e) {
+    console.error('[db] upsertUserMemoryFact:', String(e));
+  }
+}
+
+export async function saveChatRoundProfile(input: {
+  id: string;
+  userId: string;
+  conversationId?: string;
+  variant: PersonalizationVariant;
+  difficultyBand: string;
+  challengeInterval: number;
+  correctionMode: string;
+  maxSentenceLen: string;
+  reasons: string[];
+  createdAtMs: number;
+}): Promise<void> {
+  const sql = getDb();
+  try {
+    await sql`
+      INSERT INTO chat_round_profiles (
+        id, user_id, conversation_id, variant, difficulty_band, challenge_interval,
+        correction_mode, max_sentence_len, reason_json, created_at_ms
+      ) VALUES (
+        ${input.id},
+        ${input.userId},
+        ${input.conversationId ?? null},
+        ${input.variant},
+        ${input.difficultyBand},
+        ${Math.max(1, Math.floor(input.challengeInterval))},
+        ${input.correctionMode},
+        ${input.maxSentenceLen},
+        ${JSON.stringify(input.reasons)}::jsonb,
+        ${input.createdAtMs}
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
+  } catch (e) {
+    console.error('[db] saveChatRoundProfile:', String(e));
+  }
+}
+
+export async function hasClaimedMissionReward(userId: string, dateKey: string): Promise<boolean> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT id
+      FROM user_mission_rewards
+      WHERE user_id = ${userId} AND date_key = ${dateKey}
+      LIMIT 1
+    `;
+    return rows.length > 0;
+  } catch (e) {
+    console.error('[db] hasClaimedMissionReward:', String(e));
+    return false;
+  }
+}
+
+export async function claimMissionReward(args: {
+  userId: string;
+  dateKey: string;
+  rewardXp: number;
+}): Promise<{ claimed: boolean; xp: number; streakDays: number; rewardXp: number }> {
+  const sql = getDb();
+  const rewardXp = Math.max(0, Math.floor(args.rewardXp));
+  const id = `${args.userId}:${args.dateKey}`.slice(0, 240);
+  try {
+    const rows = await sql`
+      INSERT INTO user_mission_rewards (id, user_id, date_key, reward_xp, created_at_ms)
+      VALUES (${id}, ${args.userId}, ${args.dateKey}, ${rewardXp}, ${Date.now()})
+      ON CONFLICT (user_id, date_key) DO NOTHING
+      RETURNING id
+    `;
+    if (rows.length === 0) {
+      const progress = await getUserProgress(args.userId);
+      return { claimed: false, xp: progress.xp, streakDays: progress.streakDays, rewardXp };
+    }
+    const progress = await addUserXp(args.userId, rewardXp);
+    return { claimed: true, xp: progress.xp, streakDays: progress.streakDays, rewardXp };
+  } catch (e) {
+    console.error('[db] claimMissionReward:', String(e));
+    const progress = await getUserProgress(args.userId);
+    return { claimed: false, xp: progress.xp, streakDays: progress.streakDays, rewardXp };
+  }
+}
+
+export interface DailyQuestStatus {
+  mainCompleted: boolean;
+  bonusCompleted: boolean;
+}
+
+export async function getDailyQuestStatus(userId: string, dateKey: string): Promise<DailyQuestStatus> {
+  const sql = getDb();
+  try {
+    const rows = await sql`
+      SELECT quest_key, is_completed
+      FROM user_daily_quest_status
+      WHERE user_id = ${userId} AND date_key = ${dateKey}
+    `;
+    let mainCompleted = false;
+    let bonusCompleted = false;
+    for (const row of rows) {
+      const key = String(row.quest_key ?? '');
+      const completed = Boolean(row.is_completed);
+      if (key === 'main' && completed) mainCompleted = true;
+      if (key === 'bonus' && completed) bonusCompleted = true;
+    }
+    return { mainCompleted, bonusCompleted };
+  } catch (e) {
+    console.error('[db] getDailyQuestStatus:', String(e));
+    return { mainCompleted: false, bonusCompleted: false };
+  }
+}
+
+export async function completeDailyQuest(args: {
+  userId: string;
+  dateKey: string;
+  questKey: 'main' | 'bonus';
+}): Promise<void> {
+  const sql = getDb();
+  const now = Date.now();
+  const id = `${args.userId}:${args.dateKey}:${args.questKey}`.slice(0, 240);
+  try {
+    await sql`
+      INSERT INTO user_daily_quest_status (
+        id, user_id, date_key, quest_key, is_completed, completed_at_ms
+      ) VALUES (
+        ${id}, ${args.userId}, ${args.dateKey}, ${args.questKey}, TRUE, ${now}
+      )
+      ON CONFLICT (user_id, date_key, quest_key) DO UPDATE SET
+        is_completed = TRUE,
+        completed_at_ms = COALESCE(user_daily_quest_status.completed_at_ms, EXCLUDED.completed_at_ms),
+        updated_at = NOW()
+    `;
+  } catch (e) {
+    console.error('[db] completeDailyQuest:', String(e));
+  }
 }
 
 export async function listUserPracticeMessagesSince(userId: string, sinceMs: number): Promise<UserPracticeMessage[]> {

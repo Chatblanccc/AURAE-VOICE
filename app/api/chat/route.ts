@@ -6,14 +6,30 @@ import { z } from 'zod';
 import {
   ensureSchema, createConversation,
   saveMessageToConversation, touchConversation,
-  getUserPlan, recordUsage, getUsageCount, getMonthlyUsageCount, addUserXp,
+  getUserAssessment,
+  getUserPlan,
+  getUserProgress,
+  getUsageCount,
+  getMonthlyUsageCount,
+  listUserMemoryFacts,
+  recordUsage,
+  saveChatRoundProfile,
+  upsertUserMemoryFact,
 } from '@/lib/db';
 import { checkChatRateLimit } from '@/lib/rate-limit';
+import {
+  assignPersonalizationVariant,
+  buildMemoryPrompt,
+  deriveDifficultyProfile,
+} from '@/lib/personalization/memory';
+import {
+  extractMemoryCandidatesFromTurn,
+  mergeMemoryCandidates,
+} from '@/lib/personalization/memory-curator-agent';
 
 const FREE_LIMIT = 100;
 const FREE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // rolling 7-day window
 const PLUS_LIMIT = 1000;
-const XP_PER_COMPLETED_ROUND = 20;
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -86,6 +102,7 @@ const MAX_MESSAGES = 100;
 const MAX_TITLE_LEN = 200;
 const VALID_PROFICIENCIES = new Set(['beginner', 'intermediate', 'advanced']);
 const VALID_PERSONAS = new Set(['alex', 'trump']);
+const MAX_MEMORY_FACTS = 12;
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
@@ -248,11 +265,38 @@ export async function POST(req: NextRequest) {
 
   // Sanitize free-text fields before embedding in the system prompt to prevent
   // prompt-injection attacks (e.g. topic: "ignore previous instructions").
-  const proficiency = VALID_PROFICIENCIES.has(settings?.proficiency ?? '')
-    ? settings!.proficiency!
-    : 'intermediate';
   const rawTopic = typeof settings?.topic === 'string' ? settings.topic : 'Daily Conversation';
-  const topic = rawTopic.slice(0, 100).replace(/[<>{}\[\]]/g, '');
+  const variant = assignPersonalizationVariant(userId);
+  const [assessment, progress, memoryFacts] = await Promise.all([
+    getUserAssessment(userId),
+    getUserProgress(userId),
+    listUserMemoryFacts(userId, MAX_MEMORY_FACTS),
+  ]);
+  const difficultyProfile = deriveDifficultyProfile({
+    settingsProficiency: VALID_PROFICIENCIES.has(settings?.proficiency ?? '')
+      ? settings?.proficiency
+      : 'intermediate',
+    topic: rawTopic,
+    assessmentOverallLevel: assessment?.overallLevel,
+    xp: progress.xp,
+    memoryFacts,
+    variant,
+  });
+  const proficiency = difficultyProfile.band;
+  const topic = difficultyProfile.topic;
+  const memoryPrompt = buildMemoryPrompt(memoryFacts);
+  const vocabularyGuardrail = difficultyProfile.band === 'beginner'
+    ? `Vocabulary guardrail for beginner users (strict):
+- Use CEFR A1-A2 words by default and very common daily phrases.
+- Avoid uncommon slang, idioms, and culture-heavy references unless user asks.
+- Keep one sentence around 6-12 words, max two short sentences.
+- If you must use a harder word, immediately explain it with simple words in the same reply.`
+    : difficultyProfile.band === 'intermediate'
+      ? `Vocabulary guardrail for intermediate users:
+- Use mostly CEFR A2-B1 words; occasional B2 is okay with context.
+- Keep replies concise and clear; avoid stacking many advanced expressions.`
+      : `Vocabulary guardrail for advanced users:
+- Natural fluent vocabulary is allowed, but keep wording conversational and not academic.`;
   const pronunciationCoachingRule = userPlan === 'free'
     ? `Membership coaching mode: FREE.
 - You can correct grammar and wording mistakes.
@@ -290,6 +334,20 @@ Your tool calls happen silently in the background. Your TEXT reply must always b
 ## Membership feature gating (strict)
 ${pronunciationCoachingRule}
 
+## Personalized coaching profile (must follow)
+- Difficulty band: ${difficultyProfile.band}
+- Challenge frequency: every ${difficultyProfile.challengeInterval} exchanges
+- Correction intensity: ${difficultyProfile.correctionIntensity}
+- Follow-up depth: ${difficultyProfile.followUpDepth}
+- Sentence length target: ${difficultyProfile.maxSentenceLength}
+- Use this profile consistently and do not jump more than one difficulty level within a short span.
+
+## Vocabulary safety guardrail (strict)
+${vocabularyGuardrail}
+
+## Durable memory summary
+${memoryPrompt}
+
 User's English level: ${proficiency}. Match vocabulary to that.
 Current topic: ${topic}. Weave it in when it fits, don't force it.`;
 
@@ -325,6 +383,20 @@ Current topic: ${topic}. Weave it in when it fits, don't force it.`;
 ## Membership feature gating (strict)
 ${pronunciationCoachingRule}
 
+## Personalized coaching profile (must follow)
+- Difficulty band: ${difficultyProfile.band}
+- Challenge frequency: every ${difficultyProfile.challengeInterval} exchanges
+- Correction intensity: ${difficultyProfile.correctionIntensity}
+- Follow-up depth: ${difficultyProfile.followUpDepth}
+- Sentence length target: ${difficultyProfile.maxSentenceLength}
+- Use this profile consistently and do not jump more than one difficulty level within a short span.
+
+## Vocabulary safety guardrail (strict)
+${vocabularyGuardrail}
+
+## Durable memory summary
+${memoryPrompt}
+
 User's English level: ${proficiency}.
 Current topic: ${topic}. Keep it relevant, opinionated, and natural.`;
 
@@ -341,20 +413,50 @@ Current topic: ${topic}. Keep it relevant, opinionated, and natural.`;
     messages: await convertToModelMessages(messages, activeTools ? { tools: activeTools } : {}),
     ...(activeTools ? { tools: activeTools, stopWhen: stepCountIs(6) } : {}),
     onFinish: async ({ text }) => {
+      const finishedAt = Date.now();
       // Record one usage unit per completed round
       try { await recordUsage(userId); } catch (e) {
         console.error('[chat] recordUsage:', String(e));
       }
-      try { await addUserXp(userId, XP_PER_COMPLETED_ROUND); } catch (e) {
-        console.error('[chat] addUserXp:', String(e));
+      try {
+        await saveChatRoundProfile({
+          id: newId(),
+          userId,
+          conversationId,
+          variant,
+          difficultyBand: difficultyProfile.band,
+          challengeInterval: difficultyProfile.challengeInterval,
+          correctionMode: difficultyProfile.correctionIntensity,
+          maxSentenceLen: difficultyProfile.maxSentenceLength,
+          reasons: difficultyProfile.reasons,
+          createdAtMs: finishedAt,
+        });
+      } catch (e) {
+        console.error('[chat] saveChatRoundProfile:', String(e));
       }
+
+      try {
+        const latestUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+        const userTextPart = latestUserMsg?.parts?.find((p: { type: string }) => p.type === 'text') as
+          | { text?: string }
+          | undefined;
+        const userText = typeof userTextPart?.text === 'string' ? userTextPart.text : '';
+        if (variant === 'memory_adaptive' && userText.trim().length > 0) {
+          const candidates = extractMemoryCandidatesFromTurn(userText);
+          const newCandidates = mergeMemoryCandidates(memoryFacts, candidates);
+          await Promise.all(newCandidates.map((candidate) => upsertUserMemoryFact(userId, candidate)));
+        }
+      } catch (e) {
+        console.error('[chat] memory curator:', String(e));
+      }
+
       if (userId && conversationId && text.trim()) {
         try {
           await saveMessageToConversation(conversationId, userId, {
             id: newId(),
             role: 'assistant',
             content: text,
-            timestamp: Date.now(),
+            timestamp: finishedAt,
           });
           await touchConversation(conversationId, userId);
           console.log('[chat] AI message saved, len:', text.length);

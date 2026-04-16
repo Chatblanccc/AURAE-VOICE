@@ -36,6 +36,12 @@ export interface MissionProgressInfo {
   targetMs: number;
   progressPercent: number;
   messageCount: number;
+  rewardClaimed?: boolean;
+  rewardXp?: number;
+  questStatus?: {
+    mainCompleted: boolean;
+    bonusCompleted: boolean;
+  };
 }
 
 export type Persona = 'alex' | 'trump';
@@ -60,6 +66,40 @@ export interface UserSettings {
   proficiency: 'beginner' | 'intermediate' | 'advanced';
   topic: string;
 }
+
+export type DifficultyBand = 'beginner' | 'intermediate' | 'advanced';
+
+export interface DifficultyProfile {
+  band: DifficultyBand;
+  source: 'settings' | 'assessment' | 'hybrid';
+  challengeInterval: number;
+  maxSentenceLength: 'short' | 'medium' | 'long';
+  correctionIntensity: 'light' | 'balanced' | 'strict';
+  followUpDepth: 'shallow' | 'balanced' | 'deep';
+  topic: string;
+  reasons: string[];
+}
+
+export type MemoryKind = 'preference' | 'skill' | 'goal' | 'strategy';
+
+export interface UserMemoryFact {
+  id: string;
+  userId: string;
+  kind: MemoryKind;
+  key: string;
+  value: string;
+  confidence: number;
+  updatedAtMs: number;
+}
+
+export interface MemoryCandidate {
+  kind: MemoryKind;
+  key: string;
+  value: string;
+  confidence: number;
+}
+
+export type PersonalizationVariant = 'control' | 'memory_adaptive';
 
 export interface ChatState {
   messages: Message[];
