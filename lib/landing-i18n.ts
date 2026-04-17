@@ -15,14 +15,13 @@
     // ── Hero ─────────────────────────────────────────────────────────────────
     hero: {
       badge: 'AI-Powered English Conversation Coach',
-      headlineLine1: 'Speak English with',
-      headlineAccent: 'confidence.',
+      headlineLine1: 'AI Voice Generator and TTS Software for',
+      headlineAccent: 'natural voice agents.',
       subtitle:
-        'Practice real conversations with your AI tutor. Get instant feedback on grammar, pronunciation, and fluency — anytime, anywhere.',
+        'Create natural AI voice conversations with low-latency responses, realistic speech output, and multilingual support for global products.',
       ctaPrimary: "Start speaking — it's free",
       ctaSecondary: 'See how it works',
-      socialProof: 'learners this month',
-      rating: 'rating',
+      socialProof: 'Active users this month',
       chatGreeting: "Hi! Let's practice ordering food at a restaurant. I'll play the waiter. Ready to begin?",
       chatUserReply: "Yes, I'm ready! Can I get a table for two?",
       chatWaiterReply: 'Of course! Right this way.',
@@ -312,14 +311,13 @@
 
     hero: {
       badge: 'AI 驱动的英语口语教练',
-      headlineLine1: '自信开口说英语',
-      headlineAccent: '从现在开始。',
+      headlineLine1: '用于构建真实体验的 AI 语音生成与 TTS 平台',
+      headlineAccent: '低延迟语音智能体。',
       subtitle:
-        '与你的 AI 家教进行真实对话，实时获得语法、发音和流利度反馈——随时随地，随心练习。',
+        '提供自然语音合成、实时对话与多语言能力，帮助全球产品快速上线高质量语音交互体验。',
       ctaPrimary: '立即开口练习，完全免费',
       ctaSecondary: '了解使用方式',
-      socialProof: '本月学习者',
-      rating: '评分',
+      socialProof: '本月活跃用户',
       chatGreeting: '你好！我们来练习在餐厅点餐吧。我来扮演服务员，准备好了吗？',
       chatUserReply: '好的，我准备好了！请问有两人桌吗？',
       chatWaiterReply: '当然！请跟我来。',

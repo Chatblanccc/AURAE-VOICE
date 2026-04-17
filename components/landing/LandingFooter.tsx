@@ -6,8 +6,8 @@ import { t } from '@/lib/landing-i18n';
 import { AuraeLogoIcon } from '@/components/AuraeLogo';
 
 const productHrefs = ['#features', '#how-it-works', '#pricing', '#faq'];
-const companyHrefs = ['#', '#', '#', 'mailto:hello@aurae.ai'];
-const legalHrefs = ['#', '#', '#'];
+const companyHrefs = ['#', '/blog', '#', 'mailto:hello@aurae.ai'];
+const legalHrefs = ['/privacy', '/terms', '#'];
 
 export function LandingFooter() {
   const { lang } = useLanguageStore();

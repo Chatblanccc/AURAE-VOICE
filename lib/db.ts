@@ -169,6 +169,18 @@ export async function ensureSchema() {
 
   try {
     await sql`
+      CREATE TABLE IF NOT EXISTS user_public_profiles (
+        user_id      TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL,
+        updated_at   TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_public_profiles table:', String(e)); }
+
+  try { await sql`CREATE INDEX IF NOT EXISTS user_public_profiles_updated_idx ON user_public_profiles(updated_at DESC)`; } catch {}
+
+  try {
+    await sql`
       CREATE TABLE IF NOT EXISTS chat_round_profiles (
         id                 TEXT PRIMARY KEY,
         user_id            TEXT NOT NULL,
@@ -219,6 +231,50 @@ export async function ensureSchema() {
   try { await sql`CREATE INDEX IF NOT EXISTS user_daily_quest_status_user_idx ON user_daily_quest_status(user_id, date_key)`; } catch {}
 
   schemaReady = true;
+}
+
+function normalizeDisplayName(input: string): string {
+  const trimmed = input.trim().replace(/\s+/g, ' ');
+  return trimmed.slice(0, 40);
+}
+
+export async function upsertPublicProfile(userId: string, displayName: string): Promise<void> {
+  const normalized = normalizeDisplayName(displayName);
+  if (!normalized) return;
+  const sql = getDb();
+  try {
+    await sql`
+      INSERT INTO user_public_profiles (user_id, display_name, updated_at)
+      VALUES (${userId}, ${normalized}, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        updated_at = NOW()
+    `;
+  } catch (e) {
+    console.error('[db] upsertPublicProfile:', String(e));
+  }
+}
+
+export async function listRecentPublicDisplayNames(limit = 24): Promise<string[]> {
+  const sql = getDb();
+  const safeLimit = Math.max(1, Math.min(60, Math.floor(limit)));
+  try {
+    const rows = await sql`
+      SELECT display_name, MAX(updated_at) AS last_seen
+      FROM user_public_profiles
+      WHERE display_name IS NOT NULL
+        AND LENGTH(TRIM(display_name)) > 0
+      GROUP BY display_name
+      ORDER BY last_seen DESC
+      LIMIT ${safeLimit}
+    `;
+    return rows
+      .map((row) => String(row.display_name ?? '').trim())
+      .filter((name): name is string => name.length > 0);
+  } catch (e) {
+    console.error('[db] listRecentPublicDisplayNames:', String(e));
+    return [];
+  }
 }
 
 // ── Conversation CRUD ─────────────────────────────────────────────────────────

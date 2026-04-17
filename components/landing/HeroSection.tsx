@@ -5,9 +5,19 @@ import { useLanguageStore } from '@/store/useLanguageStore';
 import { t } from '@/lib/landing-i18n';
 import { AuraeLogoIcon } from '@/components/AuraeLogo';
 
-export function HeroSection() {
+type HeroSectionProps = {
+  publicUsernames: string[];
+};
+
+export function HeroSection({ publicUsernames }: HeroSectionProps) {
   const { lang } = useLanguageStore();
   const tx = t[lang].hero;
+  const names = publicUsernames.length > 0
+    ? publicUsernames
+    : ['AURAE User', 'Voice Builder', 'Global Creator', 'AI Team'];
+  const uniqueNames = Array.from(new Set(names));
+  const enableMarquee = uniqueNames.length >= 8;
+  const scrollingNames = enableMarquee ? [...uniqueNames, ...uniqueNames] : uniqueNames;
 
   return (
     <section className="relative overflow-hidden pt-40 pb-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
@@ -63,29 +73,22 @@ export function HeroSection() {
         </div>
 
         {/* Social proof */}
-        <div className="mt-14 flex flex-col sm:flex-row items-center justify-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {(['#e8a87c', '#7eb8c9', '#9b8ec4', '#74b87e'] as const).map((color, i) => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-medium" style={{ background: color, borderColor: 'var(--lp-bg-page)', color: '#fff' }}>
-                  {['A', 'B', 'C', 'D'][i]}
-                </div>
+        <div className="mt-14 max-w-3xl mx-auto">
+          <div className="text-sm mb-4" style={{ color: 'var(--lp-text-subtle)' }}>
+            {tx.socialProof}
+          </div>
+          <div className="lp-marquee-track">
+            <div className={enableMarquee ? "lp-marquee-content" : "lp-pill-list"}>
+              {scrollingNames.map((name, index) => (
+                <span
+                  key={`${name}-${index}`}
+                  className="lp-user-pill"
+                  title={name}
+                >
+                  {name}
+                </span>
               ))}
             </div>
-            <span className="text-sm" style={{ color: 'var(--lp-text-subtle)' }}>
-              <span className="font-semibold" style={{ color: 'var(--lp-text)' }}>2,400+</span> {tx.socialProof}
-            </span>
-          </div>
-          <div className="hidden sm:block w-px h-4" style={{ background: 'var(--lp-border-warm)' }}/>
-          <div className="flex items-center gap-1.5">
-            {[1,2,3,4,5].map(i => (
-              <svg key={i} width="14" height="14" viewBox="0 0 14 14" fill="#c96442" aria-hidden="true">
-                <path d="M7 1l1.5 3.2 3.5.5-2.5 2.4.6 3.4L7 9l-3.1 1.5.6-3.4L2 4.7l3.5-.5L7 1z"/>
-              </svg>
-            ))}
-            <span className="text-sm ml-1" style={{ color: 'var(--lp-text-subtle)' }}>
-              <span className="font-semibold" style={{ color: 'var(--lp-text)' }}>4.9</span>/5 {tx.rating}
-            </span>
           </div>
         </div>
       </div>

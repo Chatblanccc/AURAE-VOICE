@@ -4,15 +4,69 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { SessionProvider } from "next-auth/react";
 import { AuthEndpointSelfCheck } from "@/components/AuthEndpointSelfCheck";
-
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+import {
+  DEFAULT_OG_IMAGE,
+  GOOGLE_SITE_VERIFICATION,
+  SITE_NAME,
+  SITE_URL,
+} from "@/lib/site";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: "AURAE VOICE",
-  description: "Your personal AI-powered English speaking coach, powered by AURAE VOICE",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} | AI Voice Generator, TTS Software, and Voice Agent`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description:
+    "AURAE VOICE is an AI voice generator and text-to-speech software built for natural, real-time voice conversations, multilingual voice experiences, and production-ready voice agents.",
+  alternates: {
+    canonical: "/",
+  },
+  keywords: [
+    "AI Voice Generator",
+    "Text-to-Speech Software",
+    "AI Voice Agent",
+    "AI Voice Cloning",
+    "Low-latency conversational voice API",
+  ],
+  openGraph: {
+    type: "website",
+    url: SITE_URL,
+    title: `${SITE_NAME} | AI Voice Generator, TTS Software, and Voice Agent`,
+    description:
+      "Create natural AI voices with low-latency text-to-speech and real-time voice agents built for global products.",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: `${SITE_NAME} platform preview`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} | AI Voice Generator`,
+    description:
+      "Build realistic voice experiences with multilingual AI TTS and low-latency conversational voice agents.",
+    images: [DEFAULT_OG_IMAGE],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  verification: {
+    google: GOOGLE_SITE_VERIFICATION,
+  },
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml", sizes: "any" }],
     shortcut: "/favicon.svg",
