@@ -10,7 +10,7 @@ import { FaqSection } from '@/components/landing/FaqSection';
 import { FinalCtaSection } from '@/components/landing/FinalCtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
-import { ensureSchema, listRecentPublicDisplayNames } from '@/lib/db';
+import { listRecentPublicDisplayNames } from '@/lib/db';
 
 export const metadata: Metadata = {
   title: "AI Voice Generator, TTS Software, and AI Voice Agent",
@@ -22,7 +22,6 @@ export const metadata: Metadata = {
 };
 
 export default async function LandingPage() {
-  await ensureSchema();
   const publicUsernames = await listRecentPublicDisplayNames(20);
   const websiteJsonLd = {
     "@context": "https://schema.org",

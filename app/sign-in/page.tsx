@@ -10,11 +10,19 @@ const WECHAT_ENABLED = !!(
   process.env.NEXT_PUBLIC_WECHAT_ENABLED === 'true'
 );
 
+function normalizeCallbackUrl(value: string | null): string {
+  if (!value) return '/chat';
+  if (!value.startsWith('/')) return '/chat';
+  if (value.startsWith('//')) return '/chat';
+  if (value.includes('\\') || value.includes('\n') || value.includes('\r')) return '/chat';
+  return value;
+}
+
 function SignInContent() {
   const { theme, mode } = useThemeStore();
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/chat';
+  const callbackUrl = normalizeCallbackUrl(searchParams.get('callbackUrl'));
 
   // Keep data-theme in sync on this page too
   useEffect(() => {

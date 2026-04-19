@@ -101,6 +101,34 @@ export interface MemoryCandidate {
 
 export type PersonalizationVariant = 'control' | 'memory_adaptive';
 
+export type VocabReviewRating = 'again' | 'hard' | 'good' | 'easy';
+
+export interface VocabCard {
+  id: string;
+  phrase: string;
+  meaning: string;
+  example: string;
+  source: 'manual' | 'chat';
+  easeFactor: number;
+  intervalDays: number;
+  dueAt: number;
+  reviewCount: number;
+  correctCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WeeklyReport {
+  dateRange: { from: string; to: string };
+  practiceRounds: number;
+  messages: number;
+  words: number;
+  avgWordsPerMessage: number;
+  topWords: Array<{ word: string; count: number }>;
+  highlights: string[];
+  nextActions: string[];
+}
+
 export interface ChatState {
   messages: Message[];
   conversations: Conversation[];

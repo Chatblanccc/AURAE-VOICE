@@ -10,6 +10,7 @@ import {
   getUserPlan,
   getUserProgress,
   getUsageCount,
+  getUsageResetAtMs,
   getMonthlyUsageCount,
   listUserMemoryFacts,
   recordUsage,
@@ -144,7 +145,6 @@ export async function POST(req: NextRequest) {
 
   // ── Usage / rate-limit gate ───────────────────────────────────────────────
   let userPlan: 'free' | 'plus' | 'pro' = 'free';
-  let usageCheckAvailable = true;
   try {
     await ensureSchema();
     userPlan = await getUserPlan(userId);
@@ -153,9 +153,17 @@ export async function POST(req: NextRequest) {
       const windowStart = Date.now() - FREE_WINDOW_MS;
       const used = await getUsageCount(userId, windowStart);
       if (used >= FREE_LIMIT) {
-        const resetAt = windowStart + FREE_WINDOW_MS;
+        const resetAt = await getUsageResetAtMs(userId, {
+          windowMs: FREE_WINDOW_MS,
+          limit: FREE_LIMIT,
+        });
         return NextResponse.json(
-          { error: 'limit_reached', plan: 'free', limit: FREE_LIMIT, resetAt },
+          {
+            error: 'limit_reached',
+            plan: 'free',
+            limit: FREE_LIMIT,
+            resetAt: resetAt ?? Date.now() + FREE_WINDOW_MS,
+          },
           { status: 429 },
         );
       }
@@ -173,11 +181,25 @@ export async function POST(req: NextRequest) {
     // pro: no limit
   } catch (e) {
     console.error('[chat] rate-limit check failed:', String(e));
-    // Degrade gracefully: allow chat to proceed even if usage infra is temporarily unavailable.
-    usageCheckAvailable = false;
+    return NextResponse.json(
+      { error: 'usage_unavailable', message: 'Usage system is temporarily unavailable.' },
+      { status: 503 },
+    );
   }
 
-  const body = await req.json();
+  const contentLengthHeader = req.headers.get('content-length');
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : 0;
+  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_SIZE) {
+    return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+  }
+
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
   const {
     messages: rawMessages,
     settings,
@@ -442,10 +464,8 @@ Current topic: ${topic}. Keep it relevant, opinionated, and natural.`;
     onFinish: async ({ text }) => {
       const finishedAt = Date.now();
       // Record one usage unit per completed round
-      if (usageCheckAvailable) {
-        try { await recordUsage(userId); } catch (e) {
-          console.error('[chat] recordUsage:', String(e));
-        }
+      try { await recordUsage(userId); } catch (e) {
+        console.error('[chat] recordUsage:', String(e));
       }
       try {
         await saveChatRoundProfile({

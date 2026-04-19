@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -43,7 +43,7 @@ function getTarotVisualForScenario(scenario: ScenarioOption): TarotVisual {
   const text = `${scenario.titleEn} ${scenario.objective}`.toLowerCase();
   if (/(shop|grocery|market|buy|store|mall|price|payment)/.test(text)) {
     return {
-      emoji: '🛒',
+      emoji: '馃洅',
       caption: 'The Merchant',
       omen: 'Today you practice practical language: ask, compare, and confirm clearly.',
       art: 'linear-gradient(145deg,#86efac 0%,#34d399 35%,#0f766e 100%)',
@@ -51,7 +51,7 @@ function getTarotVisualForScenario(scenario: ScenarioOption): TarotVisual {
   }
   if (/(appoint|phone|call|schedule|doctor|clinic|booking|reserve)/.test(text)) {
     return {
-      emoji: '📞',
+      emoji: '馃摓',
       caption: 'The Call',
       omen: 'Short, clear sentences win. Ask for time, repeat details, and confirm politely.',
       art: 'linear-gradient(145deg,#93c5fd 0%,#3b82f6 38%,#1e40af 100%)',
@@ -59,7 +59,7 @@ function getTarotVisualForScenario(scenario: ScenarioOption): TarotVisual {
   }
   if (/(small talk|friend|social|party|intro|introduce|meeting people)/.test(text)) {
     return {
-      emoji: '💬',
+      emoji: '馃挰',
       caption: 'The Spark',
       omen: 'Keep the flow alive with follow-up questions and one personal detail.',
       art: 'linear-gradient(145deg,#fda4af 0%,#f97316 40%,#9a3412 100%)',
@@ -67,7 +67,7 @@ function getTarotVisualForScenario(scenario: ScenarioOption): TarotVisual {
   }
   if (/(travel|airport|hotel|check[- ]?in|taxi|tour|flight)/.test(text)) {
     return {
-      emoji: '🧳',
+      emoji: '馃С',
       caption: 'The Journey',
       omen: 'Focus on requests, directions, and clear confirmations at each step.',
       art: 'linear-gradient(145deg,#c4b5fd 0%,#8b5cf6 38%,#4c1d95 100%)',
@@ -75,21 +75,21 @@ function getTarotVisualForScenario(scenario: ScenarioOption): TarotVisual {
   }
   if (/(job|interview|work|office|business|meeting|presentation)/.test(text)) {
     return {
-      emoji: '💼',
+      emoji: '馃捈',
       caption: 'The Ladder',
       omen: 'Speak with structure: state your point, add one reason, and close confidently.',
       art: 'linear-gradient(145deg,#fcd34d 0%,#f59e0b 36%,#92400e 100%)',
     };
   }
   return {
-    emoji: '🎭',
+    emoji: '馃幁',
     caption: 'The Scene',
     omen: 'Use natural reactions first, then add one precise sentence to drive the role-play.',
     art: 'linear-gradient(145deg,#f5d0fe 0%,#ec4899 36%,#7e22ce 100%)',
   };
 }
 
-// ─── CSS ───────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ CSS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const STYLES = `
   @keyframes waveBar { from{transform:scaleY(0.3)} to{transform:scaleY(1)} }
   @keyframes pingRing { 0%{transform:translate(-50%,-50%) scale(1);opacity:.6} 100%{transform:translate(-50%,-50%) scale(1.6);opacity:0} }
@@ -129,7 +129,7 @@ const STYLES = `
   @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:0.01ms!important;animation-iteration-count:1!important}}
 `;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 function formatRelativeDate(ts: number): string {
   const now = Date.now();
   const diff = now - ts;
@@ -168,8 +168,8 @@ function extractText(msg: UIMessage): string {
 }
 
 const ENABLE_SEGMENTED_TTS = process.env.NEXT_PUBLIC_TTS_SEGMENTED !== '0';
-const SENTENCE_END_RE = /[.!?。！？\n]/;
-const TRAILING_QUOTE_RE = /^[\s"'”’)\]}]+/;
+const SENTENCE_END_RE = /[.!?銆傦紒锛焅n]/;
+const TRAILING_QUOTE_RE = /^[\s"'鈥濃€?\]}]+/;
 const COMMON_ABBREVIATIONS = new Set([
   'mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sr.', 'jr.', 'st.',
   'vs.', 'etc.', 'e.g.', 'i.e.', 'u.s.', 'u.k.', 'p.m.', 'a.m.',
@@ -258,16 +258,16 @@ function parseCorrectionPayload(text: string): { original?: string; corrected?: 
     for (const key of keys) {
       const quoted = new RegExp(`["']${key}["']\\s*:\\s*["']([\\s\\S]*?)["']`, 'i').exec(source);
       if (quoted?.[1]) return quoted[1].trim();
-      const plain = new RegExp(`${key}\\s*[:：]\\s*["“”]?([^\\n\\r,}]+)`, 'i').exec(source);
+      const plain = new RegExp(`${key}\\s*[:锛歖\\s*["鈥溾€漖?([^\\n\\r,}]+)`, 'i').exec(source);
       if (plain?.[1]) return plain[1].trim();
     }
     return undefined;
   };
 
   const parsed = {
-    original: readField(['original', '原句']),
-    corrected: readField(['corrected', '修正', '纠正']),
-    explanation: readField(['explanation', '解释']),
+    original: readField(['original', '鍘熷彞']),
+    corrected: readField(['corrected', '淇', '绾犳']),
+    explanation: readField(['explanation', '瑙ｉ噴']),
   };
 
   if (!parsed.original && !parsed.corrected && !parsed.explanation) return null;
@@ -392,9 +392,9 @@ function looksLikeThinkingProcess(text: string): boolean {
     'alright',
     'hmm',
     'thinking',
-    '让我想想',
-    '我想想',
-    '我来',
+    'let me think',
+    'i am thinking',
+    'hold on',
   ].some(k => normalized.includes(k));
 }
 
@@ -407,7 +407,7 @@ function toUIMessage(m: { id: string; role: string; content: string }): UIMessag
   };
 }
 
-// ─── Tool Card Components ─────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Tool Card Components 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const GrammarCard = ({
   original, corrected, explanation, mode,
@@ -422,7 +422,7 @@ const GrammarCard = ({
     </div>
     <div className="space-y-1">
       <p style={{ color: mode === 'dark' ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.4)', textDecoration: 'line-through' }}>{original}</p>
-      <p style={{ color: mode === 'dark' ? '#bbf7d0' : '#166534', fontWeight: 500 }}>→ {corrected}</p>
+      <p style={{ color: mode === 'dark' ? '#bbf7d0' : '#166534', fontWeight: 500 }}>鈫?{corrected}</p>
       <p style={{ color: mode === 'dark' ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.5)', fontStyle: 'italic' }}>{explanation}</p>
     </div>
   </div>
@@ -474,7 +474,7 @@ const ChallengeCard = ({
   );
 };
 
-// ─── ChatBubble ───────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ ChatBubble 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const ChatBubble = ({ message, onReplay, replaying, speakerName, speakerAccent }: {
   message: UIMessage;
@@ -571,7 +571,7 @@ const ChatBubble = ({ message, onReplay, replaying, speakerName, speakerAccent }
           ) : null}
         </div>
 
-        {/* Tool cards — rendered outside the bubble, below it */}
+        {/* Tool cards 鈥?rendered outside the bubble, below it */}
         {!u && (toolParts.length > 0 || inlineCorrection || inlineChallenge || inlineVocabulary) && (
           <div className="mt-1 space-y-1">
             {inlineCorrection && (
@@ -657,7 +657,7 @@ const ChatBubble = ({ message, onReplay, replaying, speakerName, speakerAccent }
   );
 };
 
-// ─── TextInputBar ─────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ TextInputBar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; disabled: boolean }) => {
   const { theme } = useThemeStore();
   const [value, setValue] = useState('');
@@ -668,7 +668,7 @@ const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; di
         style={{ background: theme.bgInput, border: `1px solid ${theme.bgInputBorder}` }}>
         <input type="text" value={value} onChange={e => setValue(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && submit()}
-          placeholder="Type a message…" disabled={disabled}
+          placeholder="Type a message..." disabled={disabled}
           className="flex-1 bg-transparent text-sm outline-none disabled:opacity-40"
           style={{ color: theme.textPrimary }} />
       </div>
@@ -681,7 +681,7 @@ const TextInputBar = ({ onSend, disabled }: { onSend: (text: string) => void; di
   );
 };
 
-// ─── ConversationList ─────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ ConversationList 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const ConversationList = ({
   onClose,
   collapsed = false,
@@ -726,7 +726,7 @@ const ConversationList = ({
         <button onClick={onNewChat}
           className="mx-3 mb-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
           style={{ background: 'linear-gradient(135deg,#c96442,#b8573a)', color: '#fff' }}>
-          <Plus size={15} /> <span>New Chat 新聊天</span>
+          <Plus size={15} /> <span>New Chat</span>
         </button>
       )}
 
@@ -772,7 +772,7 @@ const ConversationList = ({
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate leading-snug"
                   style={{ color: isActive ? theme.accentText : theme.textPrimary }}>
-                  {isLoading ? <span style={{ color: theme.textMuted }}>Loading…</span> : conv.title}
+                  {isLoading ? <span style={{ color: theme.textMuted }}>Loading...</span> : conv.title}
                 </p>
                 <p className="text-[10px] mt-0.5" style={{ color: theme.textMuted }}>
                   {formatRelativeDate(conv.updated_at)}
@@ -794,7 +794,7 @@ const ConversationList = ({
   );
 };
 
-// ─── UserMenu ─────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ UserMenu 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const PLAN_BADGE: Record<string, { label: string; bg: string; text: string }> = {
   free:  { label: 'Free', bg: 'rgba(120,120,120,.15)', text: '#888' },
   plus:  { label: 'Plus', bg: 'rgba(201,100,66,.15)',  text: '#c96442' },
@@ -806,6 +806,8 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
   const { theme } = useThemeStore();
   const [plan, setPlan] = React.useState<string>('free');
   const [portalLoading, setPortalLoading] = React.useState(false);
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     if (!session?.user) return;
@@ -814,6 +816,25 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
       .then(data => { if (data?.plan) setPlan(data.plan); })
       .catch(() => {});
   }, [session]);
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current) return;
+      if (!menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   const openPortal = React.useCallback(async () => {
     setPortalLoading(true);
@@ -836,6 +857,26 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
 
   const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.free;
   const isPaid = plan === 'plus' || plan === 'pro';
+  const subtitle = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Go';
+  const menuSurface = theme.mode === 'dark' ? '#1a1a18' : '#ffffff';
+
+  const showComingSoon = (label: string) => {
+    setMenuOpen(false);
+    alert(`${label} 即将上线`);
+  };
+
+  const handleUpgrade = async () => {
+    setMenuOpen(false);
+    if (!PAID_PLANS_LIVE) {
+      alert('Upgrade 即将上线');
+      return;
+    }
+    if (isPaid) {
+      await openPortal();
+      return;
+    }
+    window.location.href = '/#pricing';
+  };
 
   if (collapsed) {
     return (
@@ -843,7 +884,7 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
         <div className="relative">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={session.user.image ?? ''} alt={session.user.name ?? ''} referrerPolicy="no-referrer"
-            title={`${session.user.name} · ${badge.label}`}
+            title={`${session.user.name} - ${badge.label}`}
             className="w-7 h-7 rounded-full object-cover border cursor-pointer"
             style={{ borderColor: 'rgba(201,100,66,.25)' }}
             onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -858,75 +899,148 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
       </div>
     );
   }
+
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: theme.bgCard }}>
+    <div ref={menuRef} className="relative">
+      {menuOpen && (
+        <div
+          className="absolute bottom-full left-0 right-0 mb-2 rounded-3xl border p-2 z-[60]"
+          style={{
+            background: menuSurface,
+            borderColor: theme.bgCardBorder ?? 'rgba(0,0,0,.08)',
+            boxShadow: theme.mode === 'dark'
+              ? '0 18px 48px rgba(0,0,0,.55)'
+              : '0 18px 48px rgba(0,0,0,.16)',
+          }}
+        >
+          <button
+            onClick={() => showComingSoon('个人资料')}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-2xl text-left transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
+              style={{ borderColor: theme.bgCardBorder ?? 'transparent' }}
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-medium truncate">{session.user.name}</p>
+              <p className="text-xs" style={{ color: theme.textMuted }}>{subtitle}</p>
+            </div>
+            <ArrowRight size={15} style={{ color: theme.textMuted }} />
+          </button>
+
+          <div className="mx-2 my-2 h-px" style={{ background: theme.bgCardBorder ?? 'rgba(0,0,0,.08)' }} />
+
+          <button
+            onClick={() => void handleUpgrade()}
+            disabled={portalLoading}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { if (!portalLoading) e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Zap size={16} />
+            <span>{isPaid ? 'Manage subscription' : 'Upgrade plan'}</span>
+          </button>
+
+          <Link
+            href="/reports"
+            onClick={() => setMenuOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Clock size={16} />
+            <span>学习周报</span>
+          </Link>
+
+          <Link
+            href="/vocab"
+            onClick={() => setMenuOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <BookOpen size={16} />
+            <span>词卡</span>
+          </Link>
+
+          <button
+            onClick={() => showComingSoon('设置')}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <Target size={16} />
+            <span>设置</span>
+          </button>
+
+          <div className="mx-2 my-2 h-px" style={{ background: theme.bgCardBorder ?? 'rgba(0,0,0,.08)' }} />
+
+          <Link
+            href="/use-cases"
+            onClick={() => setMenuOpen(false)}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = theme.bgInput; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+          >
+            <MessageSquare size={16} />
+            <span className="flex-1">帮助</span>
+            <ArrowRight size={15} style={{ color: theme.textMuted }} />
+          </Link>
+
+          <button
+            onClick={() => { setMenuOpen(false); signOut({ callbackUrl: '/' }); }}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left text-[13px] font-medium transition-all cursor-pointer"
+            style={{ color: theme.textPrimary }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,.1)'; e.currentTarget.style.color = '#ef4444'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = theme.textPrimary; }}
+          >
+            <LogOut size={16} />
+            <span>退出登录</span>
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setMenuOpen((v) => !v)}
+        className="w-full px-2.5 py-2 flex items-center gap-2 rounded-2xl border text-left cursor-pointer transition-all"
+        style={{
+          background: theme.bgCard,
+          borderColor: menuOpen ? (theme.bgCardBorder ?? 'rgba(0,0,0,.12)') : 'transparent',
+        }}
+        aria-expanded={menuOpen}
+        aria-label="Open account menu"
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={session.user.image ?? ''} alt="" referrerPolicy="no-referrer"
-          className="w-7 h-7 rounded-full object-cover flex-shrink-0 border"
+          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border"
           style={{ borderColor: theme.bgCardBorder ?? 'transparent' }}
           onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-medium truncate" style={{ color: theme.textPrimary }}>{session.user.name}</p>
-          <span
-            className="inline-block text-[9px] font-semibold px-1.5 py-px rounded-full leading-tight mt-0.5"
-            style={{ background: badge.bg, color: badge.text }}>
-            {badge.label}
-          </span>
+          <p className="text-sm font-medium truncate" style={{ color: theme.textPrimary }}>{session.user.name}</p>
+          <p className="text-xs" style={{ color: theme.textMuted }}>{subtitle}</p>
         </div>
-        <button onClick={() => signOut({ callbackUrl: '/' })}
-          className="p-1.5 rounded-lg transition-all cursor-pointer flex-shrink-0"
-          style={{ color: theme.textMuted }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = 'rgba(239,68,68,.1)'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; e.currentTarget.style.background = 'transparent'; }}
-          title="Sign out">
-          <LogOut size={13} />
-        </button>
-      </div>
-      {PAID_PLANS_LIVE ? (
-        isPaid ? (
-          <button
-            onClick={openPortal}
-            disabled={portalLoading}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{ background: theme.bgInput, color: theme.textMuted, border: `1px solid ${theme.bgCardBorder ?? 'transparent'}` }}
-            onMouseEnter={e => { if (!portalLoading) e.currentTarget.style.color = theme.accentText; }}
-            onMouseLeave={e => { e.currentTarget.style.color = theme.textMuted; }}
-            title="Manage subscription">
-            {portalLoading ? (
-              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="40 20" />
-              </svg>
-            ) : (
-              <Zap size={11} />
-            )}
-            {portalLoading ? 'Opening…' : 'Manage subscription'}
-          </button>
-        ) : (
-          <Link
-            href="/#pricing"
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer"
-            style={{ background: 'rgba(201,100,66,.10)', color: '#c96442', border: '1px solid rgba(201,100,66,.20)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(201,100,66,.18)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(201,100,66,.10)'; }}>
-            <Zap size={11} />
-            Upgrade to Plus
-          </Link>
-        )
-      ) : null}
+      </button>
     </div>
   );
 };
-
-// ─── Persona config ───────────────────────────────────────────────────────────
 const PERSONA_META: Record<Persona, {
   name: string; tagline: string; accent: string; accentBg: string; voiceId: string | null;
 }> = {
-  alex:  { name: 'Alex',   tagline: 'Chill friend · Cali vibes',  accent: '#c96442', accentBg: 'rgba(201,100,66,.10)', voiceId: null },
-  trump: { name: 'Donald', tagline: '45th President · Tremendous!', accent: '#CC1A1A', accentBg: 'rgba(204,26,26,.10)',   voiceId: 'trump' },
+  alex:  { name: 'Alex',   tagline: 'Chill friend 路 Cali vibes',  accent: '#c96442', accentBg: 'rgba(201,100,66,.10)', voiceId: null },
+  trump: { name: 'Donald', tagline: '45th President 路 Tremendous!', accent: '#CC1A1A', accentBg: 'rgba(204,26,26,.10)',   voiceId: 'trump' },
 };
 
-// ─── PersonaCard ──────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ PersonaCard 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 const PersonaCard = ({
   persona, selected, onSelect,
 }: { persona: Persona; selected: boolean; onSelect: () => void }) => {
@@ -974,7 +1088,7 @@ const PersonaCard = ({
   );
 };
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// Main VoiceInterface component
 export const VoiceInterface = () => {
   const {
     settings,
@@ -990,7 +1104,7 @@ export const VoiceInterface = () => {
   const { data: session } = useSession();
   const userId = getUserId(session);
 
-  // Derive voice from persona — no separate voice state needed
+  // Derive voice from persona 鈥?no separate voice state needed
   const activeVoiceId = PERSONA_META[selectedPersona].voiceId;
 
   const [inputLang, setInputLang] = useState<'en-US' | 'zh-CN'>('en-US');
@@ -1003,7 +1117,7 @@ export const VoiceInterface = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [brandIconHovered, setBrandIconHovered] = useState(false);
 
-  // ── Checkout success toast ────────────────────────────────────────────────
+  // 鈹€鈹€ Checkout success toast 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const searchParams = useSearchParams();
   const [showCheckoutSuccess, setShowCheckoutSuccess] = useState(false);
   const [hasLoadedConversations, setHasLoadedConversations] = useState(false);
@@ -1043,7 +1157,7 @@ export const VoiceInterface = () => {
     }
   }, [searchParams]);
 
-  // ── Usage quota ───────────────────────────────────────────────────────────
+  // 鈹€鈹€ Usage quota 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const [usage, setUsage] = useState<UsageInfo | null>(null);
   const [rankProgress, setRankProgress] = useState<RankProgress | null>(null);
   const [missionRuntimeProgress, setMissionRuntimeProgress] = useState<MissionProgressInfo | null>(null);
@@ -1051,7 +1165,7 @@ export const VoiceInterface = () => {
   const missionClaimInFlightRef = useRef(false);
   const missionClaimedDateRef = useRef<string | null>(null);
 
-  // ── API health status ─────────────────────────────────────────────────────
+  // 鈹€鈹€ API health status 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const [apiReady, setApiReady] = useState<boolean | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -1083,7 +1197,7 @@ export const VoiceInterface = () => {
   useEffect(() => { settingsRef.current = settings; }, [settings]);
   useEffect(() => { selectedPersonaRef.current = selectedPersona; }, [selectedPersona]);
 
-  // ── useChat with AI SDK ────────────────────────────────────────────────────
+  // 鈹€鈹€ useChat with AI SDK 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const transport = useMemo(() => new DefaultChatTransport({
     api: '/api/chat',
     body: () => ({
@@ -1152,7 +1266,7 @@ export const VoiceInterface = () => {
     }
   }, [activeVoiceId, enqueueSegment]);
 
-  // ── Fetch usage from /api/usage ────────────────────────────────────────────
+  // 鈹€鈹€ Fetch usage from /api/usage 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const fetchUsage = useCallback(async () => {
     try {
       const [usageRes, progressRes] = await Promise.all([
@@ -1216,13 +1330,13 @@ export const VoiceInterface = () => {
     fetchMissionProgress(currentConversationId);
   }, [currentConversationId, fetchMissionProgress, userId]);
 
-  // ── Persona availability (free users only get browser-TTS personas) ─────────
+  // 鈹€鈹€ Persona availability (free users only get browser-TTS personas) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const availablePersonas = useMemo<Persona[]>(
     () => (usage?.plan === 'free' ? ['alex'] : (Object.keys(PERSONA_META) as Persona[])),
     [usage],
   );
 
-  // ── Auto-scroll ────────────────────────────────────────────────────────────
+  // 鈹€鈹€ Auto-scroll 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const desktopMsgRef = useRef<HTMLDivElement>(null);
   const mobileMsgRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1230,7 +1344,7 @@ export const VoiceInterface = () => {
     if (mobileMsgRef.current) mobileMsgRef.current.scrollTop = mobileMsgRef.current.scrollHeight;
   }, [chatMessages]);
 
-  // ── Auto-speak (segmented streaming + fallback full-speak) ───────────────
+  // 鈹€鈹€ Auto-speak (segmented streaming + fallback full-speak) 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const prevStatus = useRef(status);
   useEffect(() => {
     const last = chatMessages[chatMessages.length - 1];
@@ -1331,7 +1445,7 @@ export const VoiceInterface = () => {
     prefetchReplayAudio,
   ]);
 
-  // ── Handle chatError — detect 429 limit_reached ───────────────────────────
+  // 鈹€鈹€ Handle chatError 鈥?detect 429 limit_reached 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   useEffect(() => {
     if (chatError) {
       const msg = chatError.message ?? '';
@@ -1342,17 +1456,17 @@ export const VoiceInterface = () => {
     }
   }, [chatError, fetchUsage]);
 
-  // ── Voice → send (handleSend defined after activeHomeScenario — see below) ─
+  // 鈹€鈹€ Voice 鈫?send (handleSend defined after activeHomeScenario 鈥?see below) 鈹€
   const handleSendRef = useRef<(c: string) => void>(() => {});
 
-  // ── Speech error → show text input ────────────────────────────────────────
+  // 鈹€鈹€ Speech error 鈫?show text input 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   useEffect(() => {
     if (speechError === 'network' || speechError === 'not-allowed' || speechError === 'service-not-allowed') {
       setShowTextInput(true);
     }
   }, [speechError]);
 
-  // ── Load conversations on login ────────────────────────────────────────────
+  // 鈹€鈹€ Load conversations on login 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   useEffect(() => {
     if (!userId) return;
     if (prevUserIdRef.current === userId) return;
@@ -1393,7 +1507,7 @@ export const VoiceInterface = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, fetchUsage]);
 
-  // ── Load assessment/scenarios/daily plan from real APIs ───────────────────
+  // 鈹€鈹€ Load assessment/scenarios/daily plan from real APIs 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
@@ -1449,7 +1563,7 @@ export const VoiceInterface = () => {
     return () => { cancelled = true; };
   }, [userId]);
 
-  // ── Show onboarding assessment for first-time users ───────────────────────
+  // 鈹€鈹€ Show onboarding assessment for first-time users 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   useEffect(() => {
     if (!userId || !hasLoadedConversations) return;
     if (!hasAssessment && conversations.length === 0) {
@@ -1498,7 +1612,7 @@ export const VoiceInterface = () => {
     }
   }, [assessmentScores]);
 
-  // ── Select a conversation ──────────────────────────────────────────────────
+  // 鈹€鈹€ Select a conversation 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const handleSelectConversation = useCallback(async (conv: Conversation) => {
     setCurrentConversationId(conv.id);
     currentConvIdRef.current = conv.id;
@@ -1521,7 +1635,7 @@ export const VoiceInterface = () => {
     } catch { setMessages([]); }
   }, [availablePersonas, selectedPersona, setCurrentConversationId, setMessages, setPersona]);
 
-  // ── New chat ──────────────────────────────────────────────────────────────
+  // 鈹€鈹€ New chat 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const handleNewChat = useCallback(() => {
     setCurrentConversationId(null);
     currentConvIdRef.current = null;
@@ -1537,7 +1651,7 @@ export const VoiceInterface = () => {
     replayStartedRef.current = false;
   }, [resetSegmentedTtsState, setCurrentConversationId, setMessages, stop]);
 
-  // ── Clear / delete current conversation ──────────────────────────────────
+  // 鈹€鈹€ Clear / delete current conversation 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const handleClear = useCallback(async () => {
     const convId = currentConvIdRef.current;
     setMessages([]);
@@ -1639,7 +1753,7 @@ export const VoiceInterface = () => {
     handleSendRef.current('Let us have a free English chat. Please choose a topic naturally and keep giving short feedback.');
   }, [isLoading, limitReached, scenarioLaunchingId, unlock, updateSettings]);
 
-  // ── Persona switch ─────────────────────────────────────────────────────────
+  // 鈹€鈹€ Persona switch 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const handlePersonaSwitch = useCallback((p: Persona) => {
     if (p === selectedPersona) { setShowPersonaSwitcher(false); return; }
     setPersona(p);
@@ -1706,21 +1820,27 @@ export const VoiceInterface = () => {
     return () => document.removeEventListener('mousedown', onPointerDown);
   }, [showPersonaSwitcher]);
 
-  // ── Status derived values ─────────────────────────────────────────────────
+  // 鈹€鈹€ Status derived values 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const isActive = isListening || isSpeaking || isLoading;
   const API_GREEN = '#22c55e';
   const idleLabel = apiReady === true ? 'Ready' : 'False';
-  const statusLabel = isSpeaking ? 'Speaking' : isLoading ? 'Thinking…' : isListening ? (inputLang === 'zh-CN' ? '正在聆听' : 'Listening…') : idleLabel;
+  const statusLabel = isSpeaking
+    ? 'Speaking'
+    : isLoading
+      ? 'Thinking...'
+      : isListening
+        ? 'Listening...'
+        : idleLabel;
   const personaAccent = PERSONA_META[selectedPersona].accent;
   const idleColor = apiReady === true ? API_GREEN : theme.textMuted;
   const statusColor = isListening ? personaAccent : isSpeaking ? personaAccent : isLoading ? '#94a3b8' : idleColor;
 
-  // ── Speech error banner ───────────────────────────────────────────────────
+  // 鈹€鈹€ Speech error banner 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const speechErrorBanner = speechError === 'network' ? (
     <div className="flex flex-col gap-1.5 px-4 py-3 rounded-xl text-xs border text-center mx-4 mb-2"
       style={{ background: 'rgba(201,100,66,.06)', borderColor: 'rgba(201,100,66,.20)', color: 'rgba(217,119,87,.9)' }}>
-      <p>语音识别需要 Google 服务，国内网络暂不可用</p>
-      <p style={{ color: theme.textMuted }}>请使用下方输入框打字交流</p>
+      <p>Speech recognition needs Google services and may be unavailable on some networks.</p>
+      <p style={{ color: theme.textMuted }}>Please continue using text input below.</p>
     </div>
   ) : speechError ? (
     <div className="px-4 py-2.5 rounded-xl text-xs text-red-400 border border-red-500/30 text-center mx-4 mb-2"
@@ -1729,7 +1849,7 @@ export const VoiceInterface = () => {
     </div>
   ) : null;
 
-  // ── Usage pill & limit banner ──────────────────────────────────────────────
+  // 鈹€鈹€ Usage pill & limit banner 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const usagePill = usage && usage.window !== 'unlimited' ? (() => {
     const remaining = Math.max(0, usage.limit - usage.used);
     const isLow = remaining <= Math.ceil(usage.limit * 0.2);
@@ -1836,7 +1956,7 @@ export const VoiceInterface = () => {
       }
 
       convId = generateId();
-      convTitle = content.length > 45 ? content.slice(0, 45) + '…' : content;
+      convTitle = content.length > 45 ? `${content.slice(0, 45)}...` : content;
       const newConv: Conversation = { id: convId, title: convTitle, created_at: Date.now(), updated_at: Date.now() };
       addConversation(newConv);
       setCurrentConversationId(convId);
@@ -1912,7 +2032,7 @@ export const VoiceInterface = () => {
               You&apos;ve used all {usage.limit} free rounds this week.
               {resetLabel ? ` Resets${resetLabel}.` : ''}{' '}
               <Link href="/#pricing" style={{ color: '#d97757', textDecoration: 'underline' }}>Pricing</Link>
-              {' '}— paid upgrades are temporarily unavailable.
+              {' '}鈥?paid upgrades are temporarily unavailable.
             </p>
           </>
         )}
@@ -1920,7 +2040,7 @@ export const VoiceInterface = () => {
     );
   })() : null;
 
-  // ── Controls strip ────────────────────────────────────────────────────────
+  // 鈹€鈹€ Controls strip 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const Controls = () => {
     const pa = PERSONA_META[selectedPersona].accent;
       const paRgb = selectedPersona === 'trump' ? '204,26,26' : '201,100,66';
@@ -1929,7 +2049,7 @@ export const VoiceInterface = () => {
       <button onClick={() => setInputLang(l => l === 'en-US' ? 'zh-CN' : 'en-US')}
         className="px-3 py-1.5 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer"
         style={{ borderColor: `rgba(${paRgb},.2)`, background: `rgba(${paRgb},.06)`, color: theme.accentPale }}>
-        {inputLang === 'en-US' ? 'EN' : '中文'}
+        {inputLang === 'en-US' ? 'EN' : '涓枃'}
       </button>
 
       <button
@@ -1962,7 +2082,7 @@ export const VoiceInterface = () => {
     );
   };
 
-  // ── Filtered messages for display ─────────────────────────────────────────
+  // 鈹€鈹€ Filtered messages for display 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const displayMessages = chatMessages.filter(m => m.role === 'user' || m.role === 'assistant');
 
   useEffect(() => {
@@ -2000,7 +2120,7 @@ export const VoiceInterface = () => {
     const levelCurrentXp = rankProgress?.xp ?? (120 + earnedXp);
     const levelTargetXp = rankProgress ? (rankProgress.xp + rankProgress.xpToNextStage) : 200;
     const levelProgress = rankProgress?.progressPercent ?? 0;
-    const currentRank = rankProgress?.current ?? { icon: '🛡️', label: '黑铁 4' };
+    const currentRank = rankProgress?.current ?? { icon: '★', label: 'Rank 4' };
     const nextRank = rankProgress?.next ?? null;
     const reachedTopRank = !nextRank;
 
@@ -2042,7 +2162,7 @@ export const VoiceInterface = () => {
                 },
                 {
                   title: 'Side Quest',
-                  text: focusItems.length ? focusItems.join(' · ') : 'Get focus corrections ready',
+                  text: focusItems.length ? focusItems.join(' 路 ') : 'Get focus corrections ready',
                   done: questFocusReady,
                   reward: '+20 XP',
                   showStatusTag: false,
@@ -2256,9 +2376,9 @@ export const VoiceInterface = () => {
     );
   };
 
-  // ─────────────────────────────────────────────────────────────────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   //  RENDER
-  // ─────────────────────────────────────────────────────────────────────────────
+  // 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   return (
     <>
       <style>{STYLES}</style>
@@ -2312,7 +2432,7 @@ export const VoiceInterface = () => {
                     className="mt-5 w-32 h-32 rounded-full flex items-center justify-center border"
                     style={{ borderColor: 'rgba(201,100,66,.35)', background: 'rgba(201,100,66,.08)' }}
                   >
-                    <span style={{ fontSize: 54 }}>🔮</span>
+                    <span style={{ fontSize: 54 }}>馃敭</span>
                   </div>
                   <p className="mt-8 text-sm text-center" style={{ color: 'rgba(246,231,223,.82)' }}>
                     Rerolling your next speaking destiny...
@@ -2381,7 +2501,7 @@ export const VoiceInterface = () => {
         );
       })()}
 
-      {/* ── Checkout success toast ─────────────────────────────────────────── */}
+      {/* 鈹€鈹€ Checkout success toast 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
       {showCheckoutSuccess && (
         <div
           className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-sm font-medium"
@@ -2458,7 +2578,7 @@ export const VoiceInterface = () => {
                 className="px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-60"
                 style={{ background: '#c96442', color: '#fff' }}
               >
-                {assessmentSubmitting ? 'Saving…' : 'Complete assessment'}
+                {assessmentSubmitting ? 'Saving...' : 'Complete assessment'}
               </button>
             </div>
           </div>
@@ -2549,10 +2669,10 @@ export const VoiceInterface = () => {
         </div>
       )}
 
-      {/* ═══ DESKTOP ≥ lg ═══════════════════════════════════════════════════════ */}
+      {/* 鈺愨晲鈺?DESKTOP 鈮?lg 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?*/}
       <div className="hidden lg:flex h-[100dvh] w-full overflow-hidden" style={{ background: theme.bgMain }}>
 
-        {/* ── Conversation sidebar ──────────────────────────────────────────── */}
+        {/* 鈹€鈹€ Conversation sidebar 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
         <aside
           className="flex flex-col h-full border-r flex-shrink-0 overflow-hidden"
           style={{
@@ -2629,7 +2749,7 @@ export const VoiceInterface = () => {
           </div>
         </aside>
 
-        {/* ── Main chat area ────────────────────────────────────────────────── */}
+        {/* 鈹€鈹€ Main chat area 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€ */}
         <main className="relative flex-1 flex flex-col overflow-hidden" style={{ background: theme.bgMain }}>
 
           {displayMessages.length === 0 ? (
@@ -2852,8 +2972,8 @@ export const VoiceInterface = () => {
                   <RotateCcw size={11} /> Clear chat
                 </button>
                 <span className="text-[10px]" style={{ color: theme.textDimmer }}>
-                  {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
-                  {selectedPersona === 'trump' && ' · 🇺🇸 Trump voice'}
+                  {inputLang === 'zh-CN' ? '涓枃杈撳叆 路 鑻辨枃鍥炲' : 'EN input 路 EN reply'}
+                  {selectedPersona === 'trump' && ' 路 馃嚭馃嚫 Trump voice'}
                 </span>
                 {usagePill}
               </div>
@@ -2862,7 +2982,7 @@ export const VoiceInterface = () => {
         </main>
       </div>
 
-      {/* ═══ MOBILE < lg ════════════════════════════════════════════════════════ */}
+      {/* 鈺愨晲鈺?MOBILE < lg 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲 */}
       <div className="flex lg:hidden flex-col h-[100dvh] w-full overflow-hidden select-none"
         style={{ background: theme.bgMain }}>
 
@@ -3049,7 +3169,7 @@ export const VoiceInterface = () => {
           </div>
           <div className="flex items-center justify-center gap-3 mt-3">
             <p className="text-center text-[10px] tracking-wide" style={{ color: theme.textDimmer }}>
-              {inputLang === 'zh-CN' ? '中文输入 · 英文回复' : 'EN input · EN reply'}
+              {inputLang === 'zh-CN' ? '涓枃杈撳叆 路 鑻辨枃鍥炲' : 'EN input 路 EN reply'}
             </p>
             {usagePill}
           </div>
@@ -3095,7 +3215,7 @@ export const VoiceInterface = () => {
   );
 };
 
-// ─── WaveformBars (defined after VoiceInterface to avoid hoisting issues) ──────
+// 鈹€鈹€鈹€ WaveformBars (defined after VoiceInterface to avoid hoisting issues) 鈹€鈹€鈹€鈹€鈹€鈹€
 const WaveformBars = ({ active, color }: { active: boolean; color: string }) => {
   const heights = [38, 62, 82, 52, 72, 88, 48, 68, 58, 78, 44, 65];
   return (
@@ -3107,3 +3227,4 @@ const WaveformBars = ({ active, color }: { active: boolean; color: string }) => 
     </div>
   );
 };
+

@@ -7,6 +7,8 @@ import type {
   PersonalizationVariant,
   UserMemoryFact,
   UserPlan,
+  VocabCard,
+  VocabReviewRating,
 } from '@/types';
 
 /** Caps row reads to limit memory/response DoS from very large accounts. */
@@ -230,6 +232,28 @@ export async function ensureSchema() {
   try { await sql`CREATE UNIQUE INDEX IF NOT EXISTS user_daily_quest_status_unique_idx ON user_daily_quest_status(user_id, date_key, quest_key)`; } catch {}
   try { await sql`CREATE INDEX IF NOT EXISTS user_daily_quest_status_user_idx ON user_daily_quest_status(user_id, date_key)`; } catch {}
 
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS user_vocab_cards (
+        id             TEXT PRIMARY KEY,
+        user_id        TEXT NOT NULL,
+        phrase         TEXT NOT NULL,
+        meaning        TEXT NOT NULL DEFAULT '',
+        example        TEXT NOT NULL DEFAULT '',
+        source         TEXT NOT NULL DEFAULT 'manual',
+        ease_factor    DOUBLE PRECISION NOT NULL DEFAULT 2.5,
+        interval_days  INT NOT NULL DEFAULT 0,
+        due_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        review_count   INT NOT NULL DEFAULT 0,
+        correct_count  INT NOT NULL DEFAULT 0,
+        created_at     TIMESTAMPTZ DEFAULT NOW(),
+        updated_at     TIMESTAMPTZ DEFAULT NOW()
+      )
+    `;
+  } catch (e) { console.error('[schema] user_vocab_cards table:', String(e)); }
+  try { await sql`CREATE INDEX IF NOT EXISTS user_vocab_cards_due_idx ON user_vocab_cards(user_id, due_at ASC)`; } catch {}
+  try { await sql`CREATE INDEX IF NOT EXISTS user_vocab_cards_updated_idx ON user_vocab_cards(user_id, updated_at DESC)`; } catch {}
+
   schemaReady = true;
 }
 
@@ -256,9 +280,9 @@ export async function upsertPublicProfile(userId: string, displayName: string): 
 }
 
 export async function listRecentPublicDisplayNames(limit = 24): Promise<string[]> {
-  const sql = getDb();
   const safeLimit = Math.max(1, Math.min(60, Math.floor(limit)));
   try {
+    const sql = getDb();
     const rows = await sql`
       SELECT display_name, MAX(updated_at) AS last_seen
       FROM user_public_profiles
@@ -536,14 +560,53 @@ export async function getUsageCount(userId: string, sinceMs: number): Promise<nu
   return Number(rows[0]?.cnt ?? 0);
 }
 
+/**
+ * For rolling windows, compute the next reset edge when a user is at/over limit.
+ * Returns null when the user is below limit in the given window.
+ */
+export async function getUsageResetAtMs(
+  userId: string,
+  args: { windowMs: number; limit: number; nowMs?: number },
+): Promise<number | null> {
+  const sql = getDb();
+  const nowMs = args.nowMs ?? Date.now();
+  const windowStartIso = new Date(nowMs - args.windowMs).toISOString();
+  const safeLimit = Math.max(1, Math.floor(args.limit));
+
+  try {
+    const rows = await sql`
+      SELECT created_at
+      FROM user_usage
+      WHERE user_id = ${userId}
+        AND created_at >= ${windowStartIso}::timestamptz
+      ORDER BY created_at DESC
+      OFFSET ${safeLimit - 1}
+      LIMIT 1
+    `;
+
+    const anchor = rows[0]?.created_at as Date | string | null | undefined;
+    if (!anchor) return null;
+    const anchorMs = anchor instanceof Date ? anchor.getTime() : new Date(anchor).getTime();
+    if (!Number.isFinite(anchorMs)) return null;
+    return anchorMs + args.windowMs;
+  } catch (e) {
+    console.error('[db] getUsageResetAtMs:', String(e));
+    return null;
+  }
+}
+
 /** Count usage rows in the current calendar month (UTC). */
 export async function getMonthlyUsageCount(userId: string): Promise<number> {
   const sql = getDb();
+  const now = new Date();
+  const monthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const nextMonthStartIso = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
   const rows = await sql`
     SELECT COUNT(*)::int AS cnt
     FROM user_usage
     WHERE user_id = ${userId}
-      AND date_trunc('month', created_at) = date_trunc('month', NOW())
+      AND created_at >= ${monthStartIso}::timestamptz
+      AND created_at < ${nextMonthStartIso}::timestamptz
   `;
   return Number(rows[0]?.cnt ?? 0);
 }
@@ -1032,5 +1095,283 @@ export async function listConversationPracticeMessagesSince(
   } catch (e) {
     console.error('[db] listConversationPracticeMessagesSince:', String(e));
     return [];
+  }
+}
+
+function toMs(value: Date | string | number | null | undefined): number {
+  if (value == null) return Date.now();
+  if (typeof value === 'number') return value;
+  if (value instanceof Date) return value.getTime();
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function mapVocabCardRow(row: Record<string, unknown>): VocabCard {
+  return {
+    id: String(row.id),
+    phrase: String(row.phrase ?? ''),
+    meaning: String(row.meaning ?? ''),
+    example: String(row.example ?? ''),
+    source: row.source === 'chat' ? 'chat' : 'manual',
+    easeFactor: Number(row.ease_factor ?? 2.5),
+    intervalDays: Number(row.interval_days ?? 0),
+    dueAt: toMs(row.due_at as Date | string | number | null | undefined),
+    reviewCount: Number(row.review_count ?? 0),
+    correctCount: Number(row.correct_count ?? 0),
+    createdAt: toMs(row.created_at as Date | string | number | null | undefined),
+    updatedAt: toMs(row.updated_at as Date | string | number | null | undefined),
+  };
+}
+
+function normalizeVocabText(input: string, maxLen: number): string {
+  return input.trim().replace(/\s+/g, ' ').slice(0, maxLen);
+}
+
+export async function listVocabCards(userId: string, limit = 80): Promise<VocabCard[]> {
+  const sql = getDb();
+  const safeLimit = Math.max(1, Math.min(300, Math.floor(limit)));
+  try {
+    const rows = await sql`
+      SELECT
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+      FROM user_vocab_cards
+      WHERE user_id = ${userId}
+      ORDER BY due_at ASC, updated_at DESC
+      LIMIT ${safeLimit}
+    `;
+    return rows.map((row) => mapVocabCardRow(row as Record<string, unknown>));
+  } catch (e) {
+    console.error('[db] listVocabCards:', String(e));
+    return [];
+  }
+}
+
+export async function listDueVocabCards(userId: string, limit = 20, nowMs = Date.now()): Promise<VocabCard[]> {
+  const sql = getDb();
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit)));
+  const nowIso = new Date(nowMs).toISOString();
+  try {
+    const rows = await sql`
+      SELECT
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+      FROM user_vocab_cards
+      WHERE user_id = ${userId}
+        AND due_at <= ${nowIso}::timestamptz
+      ORDER BY due_at ASC
+      LIMIT ${safeLimit}
+    `;
+    return rows.map((row) => mapVocabCardRow(row as Record<string, unknown>));
+  } catch (e) {
+    console.error('[db] listDueVocabCards:', String(e));
+    return [];
+  }
+}
+
+export async function createVocabCard(args: {
+  userId: string;
+  phrase: string;
+  meaning?: string;
+  example?: string;
+  source?: 'manual' | 'chat';
+}): Promise<VocabCard | null> {
+  const sql = getDb();
+  const phrase = normalizeVocabText(args.phrase, 200);
+  const meaning = normalizeVocabText(args.meaning ?? '', 600);
+  const example = normalizeVocabText(args.example ?? '', 600);
+  if (!phrase) return null;
+
+  const nowIso = new Date().toISOString();
+  const id = `${args.userId}:${phrase.toLowerCase()}`.slice(0, 240);
+
+  try {
+    const rows = await sql`
+      INSERT INTO user_vocab_cards (
+        id, user_id, phrase, meaning, example, source,
+        ease_factor, interval_days, due_at, review_count, correct_count, updated_at
+      ) VALUES (
+        ${id}, ${args.userId}, ${phrase}, ${meaning}, ${example}, ${args.source ?? 'manual'},
+        2.5, 0, ${nowIso}::timestamptz, 0, 0, NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        meaning = CASE
+          WHEN LENGTH(TRIM(EXCLUDED.meaning)) > 0 THEN EXCLUDED.meaning
+          ELSE user_vocab_cards.meaning
+        END,
+        example = CASE
+          WHEN LENGTH(TRIM(EXCLUDED.example)) > 0 THEN EXCLUDED.example
+          ELSE user_vocab_cards.example
+        END,
+        source = EXCLUDED.source,
+        updated_at = NOW()
+      RETURNING
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+    `;
+    const row = rows[0] as Record<string, unknown> | undefined;
+    return row ? mapVocabCardRow(row) : null;
+  } catch (e) {
+    console.error('[db] createVocabCard:', String(e));
+    return null;
+  }
+}
+
+export async function updateVocabCard(args: {
+  userId: string;
+  cardId: string;
+  phrase?: string;
+  meaning?: string;
+  example?: string;
+}): Promise<VocabCard | null> {
+  const sql = getDb();
+  const cardId = normalizeVocabText(args.cardId, 240);
+  if (!cardId) return null;
+
+  const phrase = typeof args.phrase === 'string'
+    ? normalizeVocabText(args.phrase, 200)
+    : undefined;
+  const meaning = typeof args.meaning === 'string'
+    ? normalizeVocabText(args.meaning, 600)
+    : undefined;
+  const example = typeof args.example === 'string'
+    ? normalizeVocabText(args.example, 600)
+    : undefined;
+
+  if (phrase === undefined && meaning === undefined && example === undefined) {
+    return null;
+  }
+  if (phrase !== undefined && !phrase) {
+    return null;
+  }
+
+  try {
+    const rows = await sql`
+      UPDATE user_vocab_cards
+      SET
+        phrase = COALESCE(${phrase ?? null}, phrase),
+        meaning = COALESCE(${meaning ?? null}, meaning),
+        example = COALESCE(${example ?? null}, example),
+        updated_at = NOW()
+      WHERE id = ${cardId} AND user_id = ${args.userId}
+      RETURNING
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+    `;
+    const row = rows[0] as Record<string, unknown> | undefined;
+    return row ? mapVocabCardRow(row) : null;
+  } catch (e) {
+    console.error('[db] updateVocabCard:', String(e));
+    return null;
+  }
+}
+
+export async function deleteVocabCard(args: { userId: string; cardId: string }): Promise<boolean> {
+  const sql = getDb();
+  const cardId = normalizeVocabText(args.cardId, 240);
+  if (!cardId) return false;
+
+  try {
+    const rows = await sql`
+      DELETE FROM user_vocab_cards
+      WHERE id = ${cardId} AND user_id = ${args.userId}
+      RETURNING id
+    `;
+    return rows.length > 0;
+  } catch (e) {
+    console.error('[db] deleteVocabCard:', String(e));
+    return false;
+  }
+}
+
+function nextReviewState(current: {
+  easeFactor: number;
+  intervalDays: number;
+  reviewCount: number;
+  correctCount: number;
+}, rating: VocabReviewRating): {
+  easeFactor: number;
+  intervalDays: number;
+  reviewCount: number;
+  correctCount: number;
+} {
+  const currentEase = Number.isFinite(current.easeFactor) ? current.easeFactor : 2.5;
+  let easeFactor = Math.max(1.3, Math.min(3.0, currentEase));
+  const baseInterval = Math.max(0, Math.floor(current.intervalDays));
+  let intervalDays = baseInterval;
+  let correctCount = Math.max(0, Math.floor(current.correctCount));
+  const reviewCount = Math.max(0, Math.floor(current.reviewCount)) + 1;
+
+  if (rating === 'again') {
+    intervalDays = 1;
+    easeFactor = Math.max(1.3, easeFactor - 0.2);
+  } else if (rating === 'hard') {
+    intervalDays = Math.max(1, Math.round((baseInterval || 1) * 1.2));
+    easeFactor = Math.max(1.3, easeFactor - 0.05);
+    correctCount += 1;
+  } else if (rating === 'good') {
+    intervalDays = Math.max(1, Math.round((baseInterval || 1) * easeFactor));
+    correctCount += 1;
+  } else {
+    intervalDays = Math.max(2, Math.round((baseInterval || 1) * easeFactor * 1.3));
+    easeFactor = Math.min(3.0, easeFactor + 0.05);
+    correctCount += 1;
+  }
+
+  return { easeFactor, intervalDays, reviewCount, correctCount };
+}
+
+export async function reviewVocabCard(args: {
+  userId: string;
+  cardId: string;
+  rating: VocabReviewRating;
+  nowMs?: number;
+}): Promise<VocabCard | null> {
+  const sql = getDb();
+  const cardId = normalizeVocabText(args.cardId, 240);
+  if (!cardId) return null;
+
+  const nowMs = args.nowMs ?? Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  try {
+    const currentRows = await sql`
+      SELECT
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+      FROM user_vocab_cards
+      WHERE id = ${cardId} AND user_id = ${args.userId}
+      LIMIT 1
+    `;
+    const current = currentRows[0] as Record<string, unknown> | undefined;
+    if (!current) return null;
+
+    const next = nextReviewState({
+      easeFactor: Number(current.ease_factor ?? 2.5),
+      intervalDays: Number(current.interval_days ?? 0),
+      reviewCount: Number(current.review_count ?? 0),
+      correctCount: Number(current.correct_count ?? 0),
+    }, args.rating);
+    const nextDueIso = new Date(nowMs + next.intervalDays * 24 * 60 * 60 * 1000).toISOString();
+
+    const updatedRows = await sql`
+      UPDATE user_vocab_cards
+      SET
+        ease_factor = ${next.easeFactor},
+        interval_days = ${next.intervalDays},
+        due_at = ${nextDueIso}::timestamptz,
+        review_count = ${next.reviewCount},
+        correct_count = ${next.correctCount},
+        updated_at = ${nowIso}::timestamptz
+      WHERE id = ${cardId} AND user_id = ${args.userId}
+      RETURNING
+        id, phrase, meaning, example, source, ease_factor, interval_days,
+        due_at, review_count, correct_count, created_at, updated_at
+    `;
+
+    const updated = updatedRows[0] as Record<string, unknown> | undefined;
+    return updated ? mapVocabCardRow(updated) : null;
+  } catch (e) {
+    console.error('[db] reviewVocabCard:', String(e));
+    return null;
   }
 }

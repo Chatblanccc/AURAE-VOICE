@@ -72,27 +72,28 @@ if (process.env.WECHAT_CLIENT_ID && process.env.WECHAT_CLIENT_SECRET) {
 
 // ─── NextAuth export ──────────────────────────────────────────────────────────
 
-// Fail fast in production if AUTH_SECRET is missing or too short to be secure.
-if (process.env.NODE_ENV === 'production') {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error(
-      'AUTH_SECRET must be set to a random string of at least 32 characters in production. ' +
-      'Run `npx auth secret` to generate one.'
-    );
-  }
+const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+function assertProductionAuthSecret() {
+  if (process.env.NODE_ENV !== 'production') return;
+  if (authSecret && authSecret.length >= 32) return;
+  throw new Error(
+    'AUTH_SECRET must be set to a random string of at least 32 characters in production. ' +
+    'Run `npx auth secret` to generate one.'
+  );
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   /** Required in production; use `npx auth secret` to generate. Also accepts NEXTAUTH_SECRET. */
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: authSecret,
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/sign-in',
   },
   callbacks: {
     async signIn({ account, user }) {
+      assertProductionAuthSecret();
       const userId = account?.providerAccountId;
       if (!userId) return true;
 
@@ -113,6 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     /** Same-origin only — blocks open redirects from crafted callbackUrl values. */
     async redirect({ url, baseUrl }) {
+      assertProductionAuthSecret();
       try {
         const target = new URL(url, baseUrl);
         const base = new URL(baseUrl);
@@ -123,6 +125,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     },
     async jwt({ token, account }) {
+      assertProductionAuthSecret();
       // Use the provider's stable ID (e.g. Google "sub" claim) instead of the
       // auto-generated UUID that changes on every sign-in.
       if (account?.providerAccountId) {
@@ -132,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     session({ session, token }) {
+      assertProductionAuthSecret();
       if (session.user) {
         const id = (token.userId ?? token.sub) as string | undefined;
         if (id) (session.user as typeof session.user & { id: string }).id = id;

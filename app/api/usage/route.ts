@@ -4,6 +4,7 @@ import {
   ensureSchema,
   getUserPlan,
   getUsageCount,
+  getUsageResetAtMs,
   getMonthlyUsageCount,
   getStripeSubscriptionId,
 } from '@/lib/db';
@@ -66,8 +67,9 @@ export async function GET() {
   // free
   const windowStart = Date.now() - FREE_WINDOW_MS;
   const used = await getUsageCount(userId, windowStart);
-  // Approximate reset edge for rolling window (same simplification as chat route).
-  const resetAt = used >= FREE_LIMIT ? windowStart + FREE_WINDOW_MS : null;
+  const resetAt = used >= FREE_LIMIT
+    ? (await getUsageResetAtMs(userId, { windowMs: FREE_WINDOW_MS, limit: FREE_LIMIT })) ?? Date.now() + FREE_WINDOW_MS
+    : null;
   const info: UsageInfo = {
     plan: 'free',
     used,

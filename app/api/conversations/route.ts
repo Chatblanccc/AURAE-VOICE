@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { listConversations, createConversation, ensureSchema, migrateAllUuidUsers } from '@/lib/db';
+import { listConversations, createConversation, ensureSchema } from '@/lib/db';
 import type { Conversation } from '@/types';
 
 const MAX_TITLE_LEN = 200;
 
 type S = { user?: { id?: string } | null } | null;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-let migrationDone = false;
 
 export async function GET() {
   const session = await auth() as S;
@@ -21,22 +18,6 @@ export async function GET() {
 
   try { await ensureSchema(); } catch (e) {
     console.error('[GET /api/conversations] ensureSchema (non-fatal):', String(e));
-  }
-
-  // Dangerous in multi-tenant deployments: assigns ALL legacy UUID rows to one user.
-  // Only run when explicitly enabled (e.g. single-user maintenance window).
-  if (
-    process.env.LEGACY_UUID_MIGRATION_ENABLED === 'true' &&
-    !migrationDone &&
-    !UUID_RE.test(userId)
-  ) {
-    migrationDone = true;
-    try {
-      await migrateAllUuidUsers(userId);
-    } catch (e) {
-      console.error('[GET /api/conversations] migration error (non-fatal):', String(e));
-      migrationDone = false;
-    }
   }
 
   try {
