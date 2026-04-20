@@ -857,7 +857,7 @@ const UserMenu = ({ collapsed = false }: { collapsed?: boolean }) => {
 
   const badge = PLAN_BADGE[plan] ?? PLAN_BADGE.free;
   const isPaid = plan === 'plus' || plan === 'pro';
-  const subtitle = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Go';
+  const subtitle = plan === 'pro' ? 'Pro' : plan === 'plus' ? 'Plus' : 'Free';
   const menuSurface = theme.mode === 'dark' ? '#1a1a18' : '#ffffff';
 
   const showComingSoon = (label: string) => {
@@ -2126,14 +2126,14 @@ export const VoiceInterface = () => {
 
     return (
         <section
-          className={`w-full rounded-2xl border text-left p-2.5 ${stageMode && !mobile ? 'min-h-[clamp(300px,42vh,460px)]' : ''}`}
+          className={`w-full rounded-2xl border text-left p-2.5 ${stageMode && !mobile ? 'min-h-full flex flex-col' : ''}`}
         style={{
           background: theme.bgCard,
           borderColor: theme.bgCardBorder,
           boxShadow: theme.mode === 'dark' ? '0 4px 24px rgba(0,0,0,.2)' : '0 4px 24px rgba(0,0,0,.06)',
         }}
       >
-        <div className="flex items-center justify-between gap-2 mb-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2">
             <Target size={mobile ? 14 : 16} style={{ color: '#c96442' }} />
             <p className={`${stepLabel} font-semibold uppercase tracking-wide`} style={{ color: theme.accentText }}>
@@ -2148,8 +2148,8 @@ export const VoiceInterface = () => {
           </div>
         </div>
 
-        <div className={`grid gap-3 ${mobile ? 'grid-cols-1' : 'grid-cols-12'} ${stageMode && !mobile ? 'items-stretch' : ''}`}>
-          <div className={`${mobile ? '' : 'col-span-4'} rounded-xl border p-3 ${stageMode && !mobile ? 'flex flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgInput }}>
+        <div className={`grid gap-3 ${mobile ? 'grid-cols-1' : 'grid-cols-[repeat(auto-fit,minmax(280px,1fr))]'} ${stageMode && !mobile ? 'flex-1 items-stretch content-stretch' : ''}`}>
+          <div className={`rounded-xl border p-3 ${stageMode && !mobile ? 'flex flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgInput }}>
             <p className={`${stepLabel} font-semibold uppercase tracking-wide mb-2`} style={{ color: theme.textMuted }}>Quest Track</p>
             <div className={`space-y-2.5 ${stageMode && !mobile ? 'flex-1' : ''}`}>
               {[
@@ -2162,7 +2162,7 @@ export const VoiceInterface = () => {
                 },
                 {
                   title: 'Side Quest',
-                  text: focusItems.length ? focusItems.join(' 路 ') : 'Get focus corrections ready',
+                  text: focusItems.length ? focusItems.join(' | ') : 'Get focus corrections ready',
                   done: questFocusReady,
                   reward: '+20 XP',
                   showStatusTag: false,
@@ -2210,7 +2210,7 @@ export const VoiceInterface = () => {
             </div>
           </div>
 
-          <div className={`${mobile ? '' : 'col-span-5'} rounded-xl border p-3 ${stageMode && !mobile ? 'flex flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder }}>
+          <div className={`rounded-xl border p-3 ${stageMode && !mobile ? 'flex flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder }}>
             <p className={`${stepLabel} font-semibold uppercase tracking-wide`} style={{ color: theme.textMuted }}>Current Mission</p>
             <h3 className={`${titleSize} font-semibold mt-1 leading-snug`} style={{ color: theme.textPrimary }}>
               {todayPlan?.goal ?? 'Build confidence through one focused speaking mission.'}
@@ -2270,7 +2270,7 @@ export const VoiceInterface = () => {
             ) : null}
           </div>
 
-          <div className={`${mobile ? '' : 'col-span-3'} rounded-xl border p-3 ${stageMode && !mobile ? 'flex flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgInput }}>
+          <div className={`rounded-xl border p-3 ${stageMode && !mobile ? 'flex h-full flex-col' : ''}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgInput }}>
             <p className={`${stepLabel} font-semibold uppercase tracking-wide`} style={{ color: theme.textMuted }}>Action & Rewards</p>
             <div className="mt-2.5 space-y-2">
               <button
@@ -2307,7 +2307,10 @@ export const VoiceInterface = () => {
                 </button>
               </div>
             </div>
-            <div className={`rounded-lg border p-2.5 ${stageMode && !mobile ? 'mt-4' : 'mt-3.5'}`} style={{ borderColor: theme.bgInputBorder, background: theme.bgCard }}>
+            <div
+              className={`rounded-lg border p-2.5 ${stageMode && !mobile ? 'mt-4 flex-1' : 'mt-3.5'}`}
+              style={{ borderColor: theme.bgInputBorder, background: theme.bgCard }}
+            >
               <p className={stepLabel} style={{ color: theme.textMuted }}>Reward preview</p>
               <p className={`${bodySize} font-semibold mt-1`} style={{ color: theme.textPrimary }}>
                 {missionRewardClaimed ? `+${missionRewardXp} XP claimed` : `+${missionRewardXp} XP on mission complete`}
@@ -2327,7 +2330,7 @@ export const VoiceInterface = () => {
             background: theme.mode === 'dark' ? 'rgba(255,255,255,.02)' : 'rgba(0,0,0,.01)',
           }}
         >
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Zap size={mobile ? 12 : 14} style={{ color: '#c96442' }} />
               <p className={`${stepLabel} font-semibold uppercase tracking-wide`} style={{ color: theme.textMuted }}>
@@ -2339,7 +2342,7 @@ export const VoiceInterface = () => {
             </p>
           </div>
 
-          <div className="mt-1.5 flex items-center justify-between gap-2">
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
             <p className={bodySize} style={{ color: theme.textPrimary }}>
               Current rank: <span style={{ color: theme.accentText }}>{currentRank.icon} {currentRank.label}</span>
             </p>
@@ -2919,8 +2922,8 @@ export const VoiceInterface = () => {
           <div ref={desktopMsgRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-4"
             style={{ scrollbarWidth: 'thin', scrollbarColor: `${theme.scrollbarColor} transparent` }}>
             {displayMessages.length === 0 ? (
-          <div className="min-h-full flex items-stretch justify-stretch py-0">
-                <section className="w-full flex flex-col gap-3">
+              <div className="w-full h-full py-0">
+                <section className="w-full h-full">
                   {renderPlanEntryCard(false, true)}
                 </section>
               </div>
