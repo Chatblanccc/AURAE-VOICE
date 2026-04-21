@@ -121,7 +121,7 @@ export function PricingSection() {
   const signInForChatHref = `/sign-in?callbackUrl=${encodeURIComponent('/chat')}`;
 
   return (
-    <section id="pricing" className="py-2 px-6" style={{ background: 'var(--lp-bg-band)' }}>
+    <section id="pricing" className="py-24 px-6" style={{ background: 'var(--lp-bg-band)' }}>
       {showLoginModal && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center p-4"

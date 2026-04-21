@@ -9,7 +9,7 @@ export function FinalCtaSection() {
   const tx = t[lang].finalCta;
 
   return (
-    <section className="py-28 px-6 text-center" style={{ background: 'var(--lp-bg-page)' }}>
+    <section className="py-24 px-6 text-center" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-2xl mx-auto">
         <h2
           className="lp-serif text-4xl md:text-5xl font-medium mb-5"

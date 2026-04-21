@@ -239,6 +239,523 @@ html:has(.landing-page) {
   scroll-behavior: smooth;
 }
 
+/* ─── Landing scroll-roll behavior ───────────────────────────────────────── */
+.landing-main {
+  position: relative;
+  isolation: isolate;
+}
+
+.landing-main > section {
+  position: relative;
+  scroll-margin-top: 5.5rem;
+}
+
+.lp-hero-section {
+  --lp-hero-progress: 0;
+}
+
+.lp-hero-stage {
+  position: relative;
+  min-height: 100svh;
+}
+
+.lp-hero-video {
+  transform: translate3d(0, calc(var(--lp-hero-progress) * -1.5svh), 0)
+    scale(calc(1 + (var(--lp-hero-progress) * 0.04)));
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.lp-hero-copy {
+  transform: translate3d(0, calc(var(--lp-hero-progress) * -3svh), 0);
+  opacity: calc(1 - (var(--lp-hero-progress) * 0.18));
+  will-change: transform, opacity;
+}
+
+.lp-hero-badge {
+  transform: translate3d(0, calc(var(--lp-hero-progress) * -1.2svh), 0);
+  opacity: calc(1 - (var(--lp-hero-progress) * 0.22));
+}
+
+.lp-hero-actions {
+  transform: translate3d(0, calc(var(--lp-hero-progress) * -2svh), 0);
+  opacity: calc(1 - (var(--lp-hero-progress) * 0.24));
+}
+
+.lp-hero-proof {
+  transform: translate3d(0, calc(var(--lp-hero-progress) * -2.6svh), 0);
+  opacity: calc(1 - (var(--lp-hero-progress) * 0.32));
+}
+
+.lp-hero-tech-overlay {
+  opacity: calc(0.22 + (var(--lp-hero-progress) * 0.16));
+  background-image:
+    radial-gradient(circle at 15% 12%, rgba(201, 100, 66, 0.26), transparent 28%),
+    radial-gradient(circle at 78% 20%, rgba(126, 184, 201, 0.12), transparent 24%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.055) 0,
+      rgba(255, 255, 255, 0.055) 1px,
+      transparent 1px,
+      transparent 84px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.035) 0,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 84px
+    );
+}
+
+.lp-hero-tech-beam {
+  opacity: calc(0.1 + (var(--lp-hero-progress) * 0.22));
+  background:
+    linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.12) 48%, transparent 66%);
+  transform: translate3d(calc(var(--lp-hero-progress) * 12%), calc(var(--lp-hero-progress) * -4%), 0);
+  will-change: transform, opacity;
+}
+
+.lp-how-section {
+  --lp-how-progress: 0;
+  position: relative;
+  overflow: clip;
+}
+
+.lp-how-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 20%, rgba(201, 100, 66, 0.18), transparent 32%),
+    radial-gradient(circle at 82% 26%, rgba(255, 255, 255, 0.06), transparent 28%);
+  opacity: calc(0.72 + (var(--lp-how-progress) * 0.18));
+  pointer-events: none;
+}
+
+.lp-how-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.045), transparent 32%),
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.03) 0,
+      rgba(255, 255, 255, 0.03) 1px,
+      transparent 1px,
+      transparent 92px
+    );
+  opacity: 0.28;
+  pointer-events: none;
+}
+
+.lp-how-showroom-shell {
+  position: relative;
+  z-index: 1;
+}
+
+.lp-how-markers {
+  margin-top: 2.75rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.lp-how-marker {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  padding: 0.95rem 1rem 0.95rem 1.05rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0 1rem 1rem 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.035), transparent 76%);
+  opacity: 0.38;
+  transform: translate3d(0, 0.35rem, 0);
+  transition:
+    transform 280ms ease,
+    opacity 280ms ease,
+    border-color 280ms ease,
+    background 280ms ease;
+}
+
+.lp-how-marker-number {
+  display: inline-flex;
+  width: 2.4rem;
+  height: 2.4rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(250, 249, 245, 0.62);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.lp-how-showroom-rail {
+  position: relative;
+  border-radius: 2rem;
+  padding: 2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+    rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 28px 60px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.lp-how-showroom-rail::before {
+  content: '';
+  position: absolute;
+  inset: auto -8% -24% 34%;
+  width: 22rem;
+  height: 22rem;
+  background: radial-gradient(circle, rgba(201, 100, 66, 0.22), transparent 70%);
+  opacity: calc(0.34 + (var(--lp-how-progress) * 0.22));
+  pointer-events: none;
+}
+
+.lp-how-step-stage {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+  min-height: 34rem;
+  align-content: center;
+}
+
+.lp-how-step-card {
+  position: relative;
+  z-index: 1;
+  border-radius: 1.75rem;
+  display: flex;
+  min-height: 7.25rem;
+  flex-direction: column;
+  padding: 1.35rem 1.5rem;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    var(--lp-bg-card-muted);
+  border: 1px solid var(--lp-border-soft);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+  opacity: 0.34;
+  transform: translate3d(1rem, 0, 0) scale(0.97);
+  transition:
+    transform 540ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 420ms ease,
+    min-height 420ms ease,
+    padding 420ms ease,
+    box-shadow 420ms ease,
+    border-color 420ms ease;
+}
+
+.lp-how-step-card::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.08), transparent 56%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.lp-how-step-card::after {
+  content: '';
+  position: absolute;
+  inset: auto -10% -32% 28%;
+  height: 12rem;
+  background: radial-gradient(circle, rgba(201, 100, 66, 0.24), transparent 70%);
+  opacity: 0;
+  transition: opacity 420ms ease;
+  pointer-events: none;
+}
+
+.lp-how-step-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.lp-how-step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.5rem;
+  min-height: 3.5rem;
+  padding: 0 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(250, 249, 245, 0.82);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.lp-how-step-chip {
+  display: inline-flex;
+  max-width: 15rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid rgba(201, 100, 66, 0.2);
+  background: rgba(201, 100, 66, 0.1);
+  padding: 0.55rem 0.9rem;
+  color: var(--lp-coral);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.lp-how-step-title {
+  margin: 0;
+  font-size: 1.4rem;
+  transition: font-size 420ms ease;
+}
+
+.lp-how-step-body {
+  margin-top: 0;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition:
+    max-height 420ms ease,
+    opacity 320ms ease,
+    margin-top 420ms ease;
+}
+
+.lp-how-step-footer {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  transition:
+    max-height 420ms ease,
+    opacity 320ms ease,
+    padding-top 420ms ease;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-marker-0,
+.lp-how-section[data-active-step='1'] .lp-how-marker-1,
+.lp-how-section[data-active-step='2'] .lp-how-marker-2 {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  border-color: rgba(201, 100, 66, 0.42);
+  background: linear-gradient(90deg, rgba(201, 100, 66, 0.16), transparent 78%);
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-marker-0 .lp-how-marker-number,
+.lp-how-section[data-active-step='1'] .lp-how-marker-1 .lp-how-marker-number,
+.lp-how-section[data-active-step='2'] .lp-how-marker-2 .lp-how-marker-number {
+  background: rgba(201, 100, 66, 0.16);
+  color: rgba(250, 249, 245, 0.96);
+  box-shadow: 0 0 0 1px rgba(201, 100, 66, 0.2);
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-0,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-1,
+.lp-how-section[data-active-step='2'] .lp-how-step-card-2 {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  z-index: 3;
+  min-height: 23rem;
+  padding: 2.35rem 2.4rem;
+  border-color: rgba(201, 100, 66, 0.32);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.3);
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-0 .lp-how-step-title,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-1 .lp-how-step-title,
+.lp-how-section[data-active-step='2'] .lp-how-step-card-2 .lp-how-step-title {
+  font-size: 2rem;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-0 .lp-how-step-body,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-1 .lp-how-step-body,
+.lp-how-section[data-active-step='2'] .lp-how-step-card-2 .lp-how-step-body {
+  margin-top: 1rem;
+  max-height: 12rem;
+  opacity: 1;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-0 .lp-how-step-footer,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-1 .lp-how-step-footer,
+.lp-how-section[data-active-step='2'] .lp-how-step-card-2 .lp-how-step-footer {
+  max-height: 4rem;
+  opacity: 1;
+  padding-top: 1.75rem;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-0::after,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-1::after,
+.lp-how-section[data-active-step='2'] .lp-how-step-card-2::after {
+  opacity: 1;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-1,
+.lp-how-section[data-active-step='1'] .lp-how-step-card-2 {
+  opacity: 0.74;
+  transform: translate3d(0.85rem, 0, 0) scale(0.985);
+  z-index: 2;
+}
+
+.lp-how-section[data-active-step='0'] .lp-how-step-card-2 {
+  opacity: 0.52;
+  transform: translate3d(1.45rem, 0, 0) scale(0.96);
+  z-index: 1;
+}
+
+.lp-how-section[data-active-step='1'] .lp-how-step-card-0 {
+  opacity: 0.5;
+  transform: translate3d(-0.45rem, 0, 0) scale(0.96);
+  z-index: 2;
+}
+
+.lp-how-section[data-active-step='2'] .lp-how-step-card-0 {
+  opacity: 0.28;
+  transform: translate3d(-0.8rem, 0, 0) scale(0.94);
+  z-index: 1;
+}
+
+.lp-how-section[data-active-step='2'] .lp-how-step-card-1 {
+  opacity: 0.58;
+  transform: translate3d(-0.3rem, 0, 0) scale(0.97);
+  z-index: 2;
+}
+
+.landing-page[data-lp-motion='active'] [data-lp-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 1.75rem, 0) scale(0.985);
+  transition:
+    transform 720ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 520ms ease;
+  transition-delay: calc(var(--lp-reveal-index, 0) * 70ms);
+}
+
+.landing-page[data-lp-motion='active'] [data-lp-reveal][data-lp-visible='true'] {
+  opacity: 1;
+  transform: none;
+}
+
+@media (min-width: 1024px) {
+  .lp-hero-section {
+    min-height: 170svh;
+  }
+
+  .lp-hero-stage {
+    position: sticky;
+    top: 0;
+  }
+
+  .lp-hero-video {
+    transform: translate3d(0, calc(var(--lp-hero-progress) * -4svh), 0)
+      scale(calc(1 + (var(--lp-hero-progress) * 0.16)));
+  }
+
+  .lp-hero-copy {
+    transform: translate3d(0, calc(var(--lp-hero-progress) * -10svh), 0)
+      scale(calc(1 - (var(--lp-hero-progress) * 0.08)));
+    opacity: calc(1 - (var(--lp-hero-progress) * 0.92));
+  }
+
+  .lp-hero-badge {
+    transform: translate3d(0, calc(var(--lp-hero-progress) * -3svh), 0);
+    opacity: calc(1 - (var(--lp-hero-progress) * 0.72));
+  }
+
+  .lp-hero-actions {
+    transform: translate3d(0, calc(var(--lp-hero-progress) * -5.5svh), 0);
+    opacity: calc(1 - (var(--lp-hero-progress) * 0.84));
+  }
+
+  .lp-hero-proof {
+    transform: translate3d(0, calc(var(--lp-hero-progress) * -7.5svh), 0);
+    opacity: calc(1 - (var(--lp-hero-progress) * 1.08));
+  }
+
+  .lp-how-section {
+    min-height: 188svh;
+    padding-block: 0;
+  }
+
+  .lp-how-sticky {
+    position: sticky;
+    top: 5.5rem;
+    display: flex;
+    min-height: calc(100svh - 5.5rem);
+    align-items: center;
+    padding-block: clamp(1.5rem, 3vh, 2.75rem);
+  }
+
+  .lp-how-showroom-shell {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.12fr);
+    gap: clamp(3rem, 4vw, 4.75rem);
+    align-items: center;
+  }
+
+  .lp-how-step-stage {
+    min-height: 34rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.landing-page) {
+    scroll-behavior: auto;
+  }
+
+  .landing-page[data-lp-motion='reduced'] [data-lp-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .landing-main > section {
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
+  }
+
+  .lp-how-section {
+    min-height: auto !important;
+    padding-block: 6rem !important;
+  }
+
+  .lp-how-sticky {
+    position: static !important;
+    min-height: auto !important;
+    padding-block: 0 !important;
+  }
+
+  .lp-how-step-stage {
+    min-height: auto !important;
+    padding-block: 0 !important;
+  }
+
+  .lp-hero-video,
+  .lp-hero-copy,
+  .lp-hero-badge,
+  .lp-hero-actions,
+  .lp-hero-proof,
+  .lp-hero-tech-beam,
+  .lp-how-marker,
+  .lp-how-step-card {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .lp-how-step-card {
+    transition: none !important;
+  }
+}
+
 @keyframes lp-marquee-scroll {
   0% {
     transform: translateX(0);

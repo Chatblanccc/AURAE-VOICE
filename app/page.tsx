@@ -9,6 +9,7 @@ import { PricingSection } from '@/components/landing/PricingSection';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { FinalCtaSection } from '@/components/landing/FinalCtaSection';
 import { LandingFooter } from '@/components/landing/LandingFooter';
+import { LandingScrollEffects } from '@/components/landing/LandingScrollEffects';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 import { listRecentPublicDisplayNames } from '@/lib/db';
 
@@ -84,7 +85,8 @@ export default async function LandingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <LandingNavbar />
-      <main>
+      <main className="landing-main">
+        <LandingScrollEffects />
         <HeroSection publicUsernames={publicUsernames} />
         <FeaturesSection />
         <HowItWorksSection />

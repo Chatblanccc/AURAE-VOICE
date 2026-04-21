@@ -67,9 +67,12 @@ export function LandingNavbar() {
     >
       <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+        <Link
+          href="/"
+          className="flex items-center gap-2.5 flex-shrink-0"
+        >
           <AuraeLogoIcon size={30} color="#C96442" />
-          <span className="text-lg font-semibold tracking-tight" style={{ color: 'var(--lp-text)' }}>
+          <span className="text-lg font-semibold tracking-tight" style={{ color: '#ffffff', textShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
             AURAE VOICE
           </span>
         </Link>
@@ -80,10 +83,14 @@ export function LandingNavbar() {
             <li key={link.href}>
               <a
                 href={link.href}
-                className="text-sm transition-colors duration-200 cursor-pointer"
-                style={{ color: 'var(--lp-text-muted)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--lp-text)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--lp-text-muted)')}
+                className="text-sm font-medium transition-colors duration-200 cursor-pointer whitespace-nowrap"
+                style={{ color: 'rgba(255,255,255,0.95)', textShadow: '0 2px 10px rgba(0,0,0,0.30)' }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.color = '#ffffff';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.95)';
+                }}
               >
                 {link.label}
               </a>

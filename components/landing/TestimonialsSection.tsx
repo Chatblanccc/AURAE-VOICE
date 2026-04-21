@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useLanguageStore } from '@/store/useLanguageStore';
 import { t } from '@/lib/landing-i18n';
 
@@ -23,7 +24,7 @@ export function TestimonialsSection() {
   const tx = t[lang].testimonials;
 
   return (
-    <section className="py-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
+    <section className="py-24 px-6" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-terracotta)', letterSpacing: '0.12em' }}>
@@ -39,7 +40,17 @@ export function TestimonialsSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tx.items.map((item, i) => (
-            <div key={i} className="rounded-2xl p-7 flex flex-col gap-5" style={{ background: 'var(--lp-bg-card)', border: '1px solid var(--lp-border)', boxShadow: 'var(--lp-shadow-card) 0px 4px 24px' }}>
+            <div
+              key={i}
+              data-lp-reveal
+              className="rounded-2xl p-7 flex flex-col gap-5"
+              style={{
+                '--lp-reveal-index': i,
+                background: 'var(--lp-bg-card)',
+                border: '1px solid var(--lp-border)',
+                boxShadow: 'var(--lp-shadow-card) 0px 4px 24px',
+              } as CSSProperties}
+            >
               <StarRating count={5} />
               <p className="text-base flex-1" style={{ color: 'var(--lp-text-charcoal)', lineHeight: '1.65' }}>
                 &ldquo;{item.quote}&rdquo;

@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { useLanguageStore } from '@/store/useLanguageStore';
 import { t } from '@/lib/landing-i18n';
 
@@ -47,7 +48,7 @@ export function FeaturesSection() {
   const tx = t[lang].features;
 
   return (
-    <section id="features" className="py-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
+    <section id="features" className="py-24 px-6" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-terracotta)', letterSpacing: '0.12em' }}>
@@ -65,8 +66,14 @@ export function FeaturesSection() {
           {tx.items.map((feature, i) => (
             <div
               key={i}
+              data-lp-reveal
               className="rounded-2xl p-7 transition-all duration-200 cursor-default"
-              style={{ background: 'var(--lp-bg-card)', border: '1px solid var(--lp-border)', boxShadow: 'var(--lp-shadow-card) 0px 4px 24px' }}
+              style={{
+                '--lp-reveal-index': i,
+                background: 'var(--lp-bg-card)',
+                border: '1px solid var(--lp-border)',
+                boxShadow: 'var(--lp-shadow-card) 0px 4px 24px',
+              } as CSSProperties}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 1px var(--lp-ring-warm), var(--lp-shadow-card) 0px 8px 32px';
                 (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';

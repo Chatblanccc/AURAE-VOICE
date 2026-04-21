@@ -40,7 +40,7 @@ export function FaqSection() {
   const tx = t[lang].faq;
 
   return (
-    <section id="faq" className="py-28 px-6" style={{ background: 'var(--lp-bg-page)' }}>
+    <section id="faq" className="py-24 px-6" style={{ background: 'var(--lp-bg-page)' }}>
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-14">
           <p className="text-xs font-medium uppercase tracking-widest mb-4" style={{ color: 'var(--lp-terracotta)', letterSpacing: '0.12em' }}>
