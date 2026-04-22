@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Barlow, Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -10,6 +11,22 @@ import {
   SITE_NAME,
   SITE_URL,
 } from "@/lib/site";
+
+const headingFont = Instrument_Serif({
+  display: "swap",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-heading-google",
+  weight: "400",
+});
+
+const bodyFont = Barlow({
+  display: "swap",
+  style: ["normal", "italic"],
+  subsets: ["latin"],
+  variable: "--font-body-google",
+  weight: ["300", "400", "500", "600"],
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -80,9 +97,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${headingFont.variable} ${bodyFont.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <head>
-        {/* Explicit tab icon — some browsers still default to /favicon.ico (see next.config redirects) */}
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" sizes="any" />
         <Script id="aurae-theme-init" strategy="beforeInteractive">
           {`(function(){try{var raw=localStorage.getItem('aurae-theme');if(!raw)return;var d=JSON.parse(raw);var m=d&&d.state&&d.state.mode;if(m==='dark'||m==='light'){document.documentElement.setAttribute('data-theme',m);document.documentElement.classList.toggle('dark',m==='dark');}}catch(e){}})();`}
