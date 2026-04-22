@@ -1,117 +1,184 @@
-# SpeakStar — AI English Tutor
+# AURAE VOICE
 
-An AI-powered English conversation practice assistant built with **Next.js**, featuring voice input/output, a casual AI companion persona, and spontaneous real-world English challenges woven naturally into conversation.
+AURAE VOICE is a Next.js 16 application for AI voice products. It combines a multilingual marketing site with an authenticated voice chat workspace, vocabulary review, weekly learning reports, billing, and voice/TTS integrations.
 
-## Features
+The repo name is still `AI-English-Tutor`, but the current product and codebase have moved beyond the original English tutor prototype. The live app now centers on voice UX, conversational practice flows, account management, and subscription-ready infrastructure.
 
-- **Voice Conversation** — Speak in English (or Chinese) and get a spoken English reply via Web Speech API
-- **Text Input** — Type messages as a fallback (required in mainland China where Google speech services are blocked)
-- **Bilingual Understanding** — Alex understands Chinese input and always replies in natural English
-- **Casual AI Persona** — "Alex", a 25-year-old Californian living in Shanghai, chats like a real friend — not a tutor
-- **Spontaneous English Challenges** — Alex naturally drops real-world scenarios into conversation to help you practice (e.g., "how would you describe that in English?") and corrects mistakes implicitly
-- **Responsive UI** — Desktop two-column layout + mobile full-screen voice-first layout
-- **Hermès Orange × Dark Gray** design theme
+## What is in the app
 
-## Tech Stack
+- Marketing landing page for `AURAE VOICE` with bilingual copy, SEO metadata, structured data, pricing, FAQ, testimonials, and custom scroll-driven motion.
+- Authenticated chat workspace at `/chat` powered by the app's voice interface.
+- Vocabulary review workspace at `/vocab` with spaced-repetition style ratings, card creation, editing, and due-card review.
+- Weekly learning report page at `/reports`.
+- Sign-in flow at `/sign-in` using Auth.js with Google and optional WeChat OAuth.
+- Billing endpoints and portal integration through Stripe.
+- API routes for chat, TTS, progress, weekly reports, vocab review, scenarios, conversations, usage, and Stripe webhooks.
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js (App Router) |
-| AI API | Moonshot AI (Kimi) — `api.moonshot.cn` |
-| Speech Input | Web Speech API (`SpeechRecognition`) |
-| Speech Output | Web Speech API (`SpeechSynthesis`) |
+## Current stack
+
+| Area | Tech |
+| --- | --- |
+| Framework | Next.js 16 App Router |
+| Runtime | React 19 + TypeScript |
+| Styling | Tailwind CSS 4 + custom global design tokens |
+| Auth | Auth.js / NextAuth v5 beta |
+| Database | Neon Postgres (`@neondatabase/serverless`) |
+| AI SDK | Vercel AI SDK + `@ai-sdk/openai` |
+| LLM provider | Moonshot / Kimi API |
+| Voice / TTS | Fish Audio API + browser voice features where applicable |
+| Billing | Stripe subscriptions + customer portal |
 | State | Zustand |
-| Styling | Tailwind CSS |
-| Icons | Lucide React |
 
-## Getting Started on a New Machine
+## Main product areas
 
-### 1. Prerequisites
+### Landing experience
 
-Make sure you have **Node.js 18+** installed. You can check with:
+The homepage in [app/page.tsx](D:\english-tutor-assistant\app\page.tsx) is a full marketing site composed from:
 
-```bash
-node -v
-```
+- [HeroSection.tsx](D:\english-tutor-assistant\components\landing\HeroSection.tsx)
+- [FeaturesSection.tsx](D:\english-tutor-assistant\components\landing\FeaturesSection.tsx)
+- [HowItWorksSection.tsx](D:\english-tutor-assistant\components\landing\HowItWorksSection.tsx)
+- [TestimonialsSection.tsx](D:\english-tutor-assistant\components\landing\TestimonialsSection.tsx)
+- [PricingSection.tsx](D:\english-tutor-assistant\components\landing\PricingSection.tsx)
+- [FaqSection.tsx](D:\english-tutor-assistant\components\landing\FaqSection.tsx)
+- [FinalCtaSection.tsx](D:\english-tutor-assistant\components\landing\FinalCtaSection.tsx)
 
-If not installed, download it from [nodejs.org](https://nodejs.org).
+It also includes custom motion and pinned-step interactions through [LandingScrollEffects.tsx](D:\english-tutor-assistant\components\landing\LandingScrollEffects.tsx).
 
-### 2. Clone the repository
+### Authenticated experience
+
+- `/chat`: voice-first conversation workspace.
+- `/vocab`: personal vocabulary card management and review.
+- `/reports`: weekly report dashboard.
+- `/features`, `/use-cases`, `/blog`, `/terms`, `/privacy`: supporting product and content pages.
+
+## Local development
+
+### Requirements
+
+- Node.js 20+ recommended
+- npm
+- A Neon Postgres database
+- A Moonshot / Kimi API key
+
+Optional integrations:
+
+- Google OAuth credentials
+- WeChat OAuth credentials
+- Fish Audio API key
+- Stripe test keys and price IDs
+
+### Install
 
 ```bash
 git clone https://github.com/Chatblanccc/AI-English-Tutor.git
 cd AI-English-Tutor
-```
-
-### 3. Install dependencies
-
-```bash
 npm install
 ```
 
-### 4. Set up environment variables
+### Configure environment
 
-Create a `.env.local` file in the root of the project:
+Copy `.env.example` to `.env.local`:
 
-```bash
-# On macOS / Linux
-cp .env.example .env.local
-
-# On Windows (PowerShell)
+```powershell
 Copy-Item .env.example .env.local
 ```
 
-Then open `.env.local` and fill in your API key:
+At minimum, fill these values:
 
 ```env
-KIMI_API_KEY=your_moonshot_api_key_here
+AUTH_SECRET=your_auth_secret
+AUTH_URL=http://localhost:3000
+
+AUTH_GOOGLE_ID=your_google_client_id
+AUTH_GOOGLE_SECRET=your_google_client_secret
+
+KIMI_API_KEY=your_moonshot_api_key
 KIMI_API_URL=https://api.moonshot.cn/v1
+
+DATABASE_URL=your_neon_database_url
 ```
 
-> **Where to get a Kimi API key:** Sign up at [platform.moonshot.cn](https://platform.moonshot.cn), then go to API Keys to create one.
+Optional but supported in the current codebase:
 
-### 5. Run the development server
+```env
+FISH_AUDIO_API_KEY=your_fish_audio_api_key
+
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PLUS_PRICE_ID=price_...
+STRIPE_PRO_PRICE_ID=price_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+NEXT_PUBLIC_SITE_URL=https://your-domain.com
+
+WECHAT_CLIENT_ID=your_wechat_client_id
+WECHAT_CLIENT_SECRET=your_wechat_client_secret
+```
+
+### Run
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser. The app is ready.
+Open [http://localhost:3000](http://localhost:3000).
 
-### 6. Build for production (optional)
+### Validate
+
+```bash
+npm run lint
+```
+
+### Production build
 
 ```bash
 npm run build
-npm start
+npm run start
 ```
 
-## Project Structure
+## Project layout
 
+```text
+app/
+  api/                 Route handlers for chat, auth, reports, vocab, Stripe, TTS, and usage
+  blog/                Blog pages
+  chat/                Voice chat page
+  features/            Product feature pages
+  privacy/             Privacy page
+  reports/             Weekly report page
+  sign-in/             Custom sign-in page
+  terms/               Terms page
+  use-cases/           Use-case pages
+  vocab/               Vocabulary review page
+
+components/
+  landing/             Marketing site sections and landing interactions
+  ui/                  Shared UI primitives
+  VoiceInterface.tsx   Main authenticated voice/chat UI
+
+lib/
+  db.ts                Neon database helpers and schema utilities
+  landing-i18n.ts      Landing-page copy in multiple languages
+  stripe.ts            Stripe helpers
+  site.ts              Canonical site metadata
+  tutor-agent.ts       Tutor / chat related logic
+
+store/
+  ...                  Zustand stores
+
+auth.ts                Auth.js configuration
+next.config.ts         Next.js config
 ```
-├── app/
-│   ├── api/chat/route.ts     # AI chat API endpoint (Kimi streaming)
-│   ├── layout.tsx            # Root layout with fonts
-│   └── page.tsx              # Entry page
-├── components/
-│   └── VoiceInterface.tsx    # Main UI component (voice + text)
-├── hooks/
-│   ├── useSpeechToText.ts    # Web Speech API — recognition
-│   └── useTextToSpeech.ts    # Web Speech API — synthesis
-├── store/
-│   └── useChatStore.ts       # Zustand global state
-├── types/
-│   └── index.ts              # TypeScript types
-└── .env.local                # ← create this yourself (not committed)
-```
 
-## Notes
+## Notes for contributors
 
-- **Voice recognition requires Google services** — in mainland China, the mic button may return a `network` error. Use the keyboard button to type instead.
-- **Browser support** — Chrome and Edge are recommended for the best Web Speech API experience. Safari has limited support.
-- The AI reply is always in English regardless of input language.
+- This repo uses a newer Next.js version. Read the internal docs under `node_modules/next/dist/docs/` before making framework-level assumptions.
+- The homepage is heavily customized and should be treated as a designed marketing surface, not a generic Tailwind landing page.
+- The authentication layer uses provider account IDs as stable user IDs.
+- Stripe subscription flows are already scaffolded in the API routes and env config.
+- The README is now aligned to the current `AURAE VOICE` app, not the older SpeakStar prototype.
 
 ## License
 
 MIT
-
-❤❤❤

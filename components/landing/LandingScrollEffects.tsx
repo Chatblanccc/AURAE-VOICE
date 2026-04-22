@@ -47,6 +47,16 @@ export function LandingScrollEffects() {
 
     let frameId = 0;
     let observer: IntersectionObserver | null = null;
+    let desktopHowStep = 0;
+    let lastWheelAt = 0;
+
+    const setDesktopHowStep = (step: number) => {
+      if (!howSection) return;
+      const nextStep = clamp(step, 0, 2);
+      desktopHowStep = nextStep;
+      howSection.dataset.activeStep = String(nextStep);
+      howSection.style.setProperty('--lp-how-progress', (nextStep / 2).toFixed(4));
+    };
 
     const resetShowroomState = () => {
       heroSection?.style.removeProperty('--lp-hero-progress');
@@ -95,6 +105,35 @@ export function LandingScrollEffects() {
       });
     };
 
+    const isHowSectionPinnedZone = () => {
+      if (!howSection) return false;
+      const rect = howSection.getBoundingClientRect();
+      const viewportHeight = Math.max(window.innerHeight, 1);
+      return rect.top < viewportHeight * 0.24 && rect.bottom > viewportHeight * 0.68;
+    };
+
+    const onWindowWheel = (event: WheelEvent) => {
+      if (!desktopQuery.matches || reducedMotionQuery.matches) return;
+      if (!isHowSectionPinnedZone()) return;
+
+      const delta = event.deltaY;
+      if (Math.abs(delta) < 10) return;
+
+      const now = performance.now();
+      if (now - lastWheelAt < 380) {
+        event.preventDefault();
+        return;
+      }
+
+      const direction = delta > 0 ? 1 : -1;
+      const nextStep = clamp(desktopHowStep + direction, 0, 2);
+      if (nextStep === desktopHowStep) return;
+
+      event.preventDefault();
+      lastWheelAt = now;
+      setDesktopHowStep(nextStep);
+    };
+
     const updateProgress = () => {
       frameId = 0;
 
@@ -116,11 +155,9 @@ export function LandingScrollEffects() {
           return;
         }
 
-        const howProgress = getStickyProgress(howSection, viewportHeight, viewportHeight * 0.12);
-        const activeStep = howProgress < 0.34 ? '0' : howProgress < 0.67 ? '1' : '2';
-
-        howSection.style.setProperty('--lp-how-progress', howProgress.toFixed(4));
-        howSection.dataset.activeStep = activeStep;
+        if (!howSection.dataset.activeStep) {
+          setDesktopHowStep(desktopHowStep);
+        }
       }
     };
 
@@ -132,12 +169,18 @@ export function LandingScrollEffects() {
     const syncAll = () => {
       page.dataset.lpMotion = reducedMotionQuery.matches ? 'reduced' : 'active';
       setupObserver();
+
+      if (desktopQuery.matches && !reducedMotionQuery.matches) {
+        setDesktopHowStep(desktopHowStep);
+      }
+
       requestUpdate();
     };
 
     window.addEventListener('scroll', requestUpdate, { passive: true });
     window.addEventListener('resize', requestUpdate);
     window.addEventListener('orientationchange', requestUpdate);
+    window.addEventListener('wheel', onWindowWheel, { passive: false });
 
     const unbindDesktopChange = bindMediaChange(desktopQuery, syncAll);
     const unbindReducedMotionChange = bindMediaChange(reducedMotionQuery, syncAll);
@@ -148,6 +191,7 @@ export function LandingScrollEffects() {
       window.removeEventListener('scroll', requestUpdate);
       window.removeEventListener('resize', requestUpdate);
       window.removeEventListener('orientationchange', requestUpdate);
+      window.removeEventListener('wheel', onWindowWheel);
       unbindDesktopChange();
       unbindReducedMotionChange();
       disconnectObserver();
