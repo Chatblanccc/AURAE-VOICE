@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { SessionProvider } from "next-auth/react";
 import LandingPage from "./page";
 
@@ -53,6 +53,42 @@ describe("homepage landing page", () => {
     expect(
       screen.getByRole("heading", {
         name: /start your first confident english conversation today\./i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("collapses the desktop navigation into a logo trigger after scrolling", () => {
+    renderLandingPage();
+
+    expect(
+      screen.getByRole("link", {
+        name: /^features$/i,
+      }),
+    ).toBeInTheDocument();
+
+    act(() => {
+      Object.defineProperty(window, "scrollY", {
+        configurable: true,
+        value: 80,
+      });
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    expect(
+      screen.queryByRole("link", {
+        name: /^features$/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /expand navigation/i,
+      }),
+    );
+
+    expect(
+      screen.getByRole("link", {
+        name: /^features$/i,
       }),
     ).toBeInTheDocument();
   });

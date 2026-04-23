@@ -314,7 +314,9 @@ function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(true);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const wasScrolledRef = useRef(false);
   const { data: session, status } = useSession();
   const { lang, toggleLang } = useLanguageStore();
   const isLoggedIn = status === "authenticated" && !!session?.user;
@@ -362,10 +364,19 @@ function Navbar() {
           menu: "Menu",
           startPractice: "Start Practice",
         };
+  const isDesktopNavCollapsed = isScrolled && !isDesktopNavExpanded;
 
   useEffect(() => {
     const onScroll = () => {
-      setIsScrolled(window.scrollY > 24);
+      const nextScrolled = window.scrollY > 24;
+      setIsScrolled(nextScrolled);
+
+      if (nextScrolled !== wasScrolledRef.current) {
+        setIsDesktopNavExpanded(!nextScrolled);
+        setMenuOpen(false);
+        setUserMenuOpen(false);
+        wasScrolledRef.current = nextScrolled;
+      }
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -398,9 +409,10 @@ function Navbar() {
     <div className="pointer-events-none fixed left-0 right-0 top-4 z-50 px-8 py-3 lg:px-16">
       <div
         className={cn(
-          "pointer-events-auto relative flex items-center rounded-xl px-2 py-1 transition-all duration-300",
+          "pointer-events-auto relative flex w-full items-center rounded-xl px-2 py-1 transition-all duration-300",
           isScrolled &&
             "border border-white/15 bg-black/35 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-lg",
+          isDesktopNavCollapsed && "md:w-fit",
         )}
       >
         {isScrolled && (
@@ -409,14 +421,35 @@ function Navbar() {
             className="pointer-events-none absolute inset-0 rounded-xl bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0.02)_40%,rgba(255,255,255,0.01)_100%)]"
           />
         )}
-        <Link href="#home" aria-label="AURAE VOICE home" className="flex items-center gap-2.5">
+        <Link
+          href="#home"
+          aria-label="AURAE VOICE home"
+          className={cn("flex items-center gap-2.5", isDesktopNavCollapsed && "md:hidden")}
+        >
           <AuraeLogoIcon size={48} color="#C96442" className="h-12 w-12 shrink-0" />
           <span className="hidden text-sm font-semibold tracking-wide text-white/95 sm:inline md:text-base">
             AURAE VOICE
           </span>
         </Link>
 
-        <div className="absolute left-1/2 hidden -translate-x-1/2 justify-center md:flex">
+        {isDesktopNavCollapsed && (
+          <button
+            type="button"
+            className="hidden items-center justify-center text-white md:inline-flex"
+            aria-controls="desktop-primary-navigation"
+            aria-expanded={false}
+            aria-label="Expand navigation"
+            onClick={() => setIsDesktopNavExpanded(true)}
+          >
+            <AuraeLogoIcon size={48} color="#C96442" className="h-12 w-12 shrink-0" />
+          </button>
+        )}
+
+        <div
+          id="desktop-primary-navigation"
+          hidden={isDesktopNavCollapsed}
+          className="absolute left-1/2 hidden -translate-x-1/2 justify-center md:flex"
+        >
           <nav className="liquid-glass rounded-full px-1.5 py-1">
             <ul className="flex items-center gap-1">
               {navItems.map((item) => (
@@ -442,7 +475,10 @@ function Navbar() {
           </nav>
         </div>
 
-        <div className="ml-auto hidden items-center gap-2 md:flex">
+        <div
+          hidden={isDesktopNavCollapsed}
+          className="ml-auto hidden items-center gap-2 md:flex"
+        >
           <button
             type="button"
             onClick={toggleLang}
